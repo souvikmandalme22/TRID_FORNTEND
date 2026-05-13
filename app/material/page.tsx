@@ -11,23 +11,25 @@ export default function MaterialPage() {
   const router = useRouter();
   const setMaterial = useOrderStore((s) => s.setMaterial);
 
-  const handleSelect = (familyId: string, materialId: string) => {
-    setMaterial({ familyId, familyLabel: familyId, gradeId: materialId, gradeLabel: materialId });
-    router.push("/use-case");
-  };
-
   return (
     <>
       <Navbar />
       <main className="min-h-screen flex items-center justify-center pt-20 pb-16">
         <Container>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }} className="text-center mb-12">
-            <span className="text-accent text-sm font-semibold tracking-widest uppercase mb-4 block">Step 3 of 4</span>
-            <h1 className="text-4xl md:text-5xl font-bold text-text-primary tracking-tight mb-3">Choose Your Material</h1>
-            <p className="text-text-secondary text-lg">Select a family, then pick the grade that fits your requirements.</p>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+            <div className="text-center mb-12">
+              <span className="text-accent text-sm font-semibold tracking-widest uppercase mb-4 block">Step 3 of 4</span>
+              <h1 className="text-4xl md:text-5xl font-bold text-text-primary tracking-tight mb-3">Choose Your Material</h1>
+              <p className="text-text-secondary text-lg">Select a family, then pick the grade.</p>
+            </div>
           </motion.div>
-          <MaterialSelect onSelect={handleSelect} />
+          <MaterialSelect
+            onSelect={(familyId, materialId) => {
+              setMaterial({ familyId, familyLabel: familyId, gradeId: materialId, gradeLabel: materialId });
+              router.push("/use-case");
+            }}
+            onBack={() => router.back()}
+          />
         </Container>
       </main>
     </>
