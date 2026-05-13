@@ -12,23 +12,17 @@ type Step = "upload" | "preview";
 
 export default function UploadPage() {
   const [step, setStep] = useState<Step>("upload");
-  const { file, setFile, setModelData, clearFile, goNext } = {
-    file: useOrderStore((s) => s.file),
-    setFile: useOrderStore((s) => s.setFile),
-    setModelData: useOrderStore((s) => s.setModelData),
-    clearFile: useOrderStore((s) => s.clearFile),
-    goNext: useOrderStore((s) => s.nextStep),
-  };
+  const setFile = useOrderStore((s) => s.setFile);
+  const clearFile = useOrderStore((s) => s.clearFile);
+  const file = useOrderStore((s) => s.file);
 
   const handleUpload = (f: File) => {
     setFile(f);
     setStep("preview");
   };
 
-  const handleConfirm = (f: File) => {
-    goNext();
-    // In real flow: router.push("/category")
-    console.log("Confirmed:", f.name);
+  const handleConfirm = (_f: File) => {
+    console.log("Confirmed — proceed to category");
   };
 
   const handleReupload = () => {
