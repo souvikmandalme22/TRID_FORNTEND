@@ -66,7 +66,7 @@ function OBJModel({ url, onDimensions }: { url: string; onDimensions: ModelScene
     obj.position.sub(center);
 
     // Apply material to all meshes
-    obj.traverse((child) => {
+    obj.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
         (child as THREE.Mesh).material = new THREE.MeshStandardMaterial({
           color: "#B0BEC5",
