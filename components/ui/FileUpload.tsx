@@ -130,7 +130,7 @@ export function FileUpload({ onUploadComplete, className }: FileUploadProps) {
   }, [onUploadComplete]);
 
   /* ─── Process file ─── */
-  const processFile = useCallback((file: File) => {
+  const processFile = useCallback(async (file: File) => {
     setError(null);
     const err = validate(file);
     if (err) {
