@@ -11,7 +11,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "https://trid-bak.onrender.com/ap
 
 export default function PricingPage() {
   const router = useRouter();
-  const { model, material, useCase, quantity, segment } = useOrderStore();
+  const { model, material, useCase, quantity } = useOrderStore();
   const setPrice = useOrderStore((s) => s.setPrice);
 
   const [priceData, setPriceData] = useState<any>(null);
@@ -21,15 +21,12 @@ export default function PricingPage() {
   useEffect(() => {
     async function fetchPrice() {
       try {
-        const res = await fetch(`${API}/pricing/calculate`, {
+        const res = await fetch(`${API}/pricing/quick-calculate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-           model_id: model?.fileName || "unknown",
-            material_key:                material?.gradeLabel?.toUpperCase().replace(/ /g, "_") || "PLA",
-            complexity:                  "mid_complex",
-            machine_tier:                "desktop",
-           final_effective_material_cc: 10,
+            material_key:                material?.gradeLabel?.toLowerCase().replace(/ /g, "-") || "pla",
+            final_effective_material_cc: 10,
             quantity:                    quantity || 1,
             delivery_type:               "standard",
           }),
@@ -38,13 +35,13 @@ export default function PricingPage() {
         const data = await res.json();
         setPriceData(data);
         setPrice({
-  pricePerUnit: Math.round(data.final_price / (quantity || 1)),
-  subtotal: data.base_display_price,
-  deliveryFee: data.delivery_charges,
-  total: data.final_price,
-  currency: "₹",
-  calculatedAt: new Date().toISOString(),
-});
+          pricePerUnit: Math.round(data.final_price / (quantity || 1)),
+          subtotal:     data.base_display_price,
+          deliveryFee:  data.delivery_charges,
+          total:        data.final_price,
+          currency:     "₹",
+          calculatedAt: new Date().toISOString(),
+        });
       } catch (e: any) {
         setError("Could not fetch price. Using estimate.");
         setPriceData({ final_price: 1240, base_display_price: 1050, gst_amount: 190, delivery_charges: 0 });
