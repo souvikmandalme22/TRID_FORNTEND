@@ -25,11 +25,11 @@ export default function PricingPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model_id:                    model?.modelId || "unknown",
+           model_id: model?.fileName || "unknown",
             material_key:                material?.gradeLabel?.toUpperCase().replace(/ /g, "_") || "PLA",
             complexity:                  "mid_complex",
             machine_tier:                "desktop",
-            final_effective_material_cc: model?.volume || 10,
+           final_effective_material_cc: 10,
             quantity:                    quantity || 1,
             delivery_type:               "standard",
           }),
