@@ -1,9 +1,7 @@
 "use client";
 import { PrimaryCTA } from "./shared";
 import { useOrderStore } from "@/store";
-
 interface Props { onNext: () => void; }
-
 function Row({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
@@ -12,14 +10,11 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
     </div>
   );
 }
-
 export function StepReview({ onNext }: Props) {
   const { model, material, useCase, quantity, price } = useOrderStore();
-
   const totalPrice  = price?.total || 0;
   const deliveryFee = price?.deliveryFee || 0;
   const subtotal    = price?.subtotal || 0;
-
   return (
     <div className="space-y-4">
       {/* Model */}
@@ -34,7 +29,6 @@ export function StepReview({ onNext }: Props) {
           <p className="text-xs text-text-muted">{material?.familyLabel} · {material?.gradeLabel}</p>
         </div>
       </div>
-
       {/* Summary */}
       <div className="bg-surface border border-border rounded-2xl px-4 py-1">
         <Row label="Material"  value={material?.gradeLabel || "—"} />
@@ -45,7 +39,6 @@ export function StepReview({ onNext }: Props) {
         <Row label="Delivery"  value={deliveryFee === 0 ? "Free" : `₹${deliveryFee}`} />
         <Row label="Total"     value={`₹${totalPrice.toLocaleString("en-IN")}`} accent />
       </div>
-
       <p className="text-xs text-text-muted text-center">
         By placing the order, you agree to TRID&apos;s manufacturing & return policy.
       </p>
