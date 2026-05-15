@@ -138,12 +138,42 @@ export function FileUpload({ onUploadComplete, className }: FileUploadProps) {
       setState("error");
       return;
     }
-    setFileInfo({
-      name: file.name,
-      size: formatSize(file.size),
-      ext: getExt(file.name),
-    });
-    simulateUpload(file);
+  setFileInfo({
+  name: file.name,
+  size: formatSize(file.size),
+  ext: getExt(file.name),
+});
+
+try {
+  setState("uploading");
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(
+    "https://trid-bak.onrender.com/upload",
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Upload failed");
+  }
+
+  setProgress(100);
+
+  setTimeout(() => {
+    setState("success");
+    onUploadComplete?.(file);
+  }, 300);
+
+} catch (error) {
+  console.error(error);
+  setError("Upload failed");
+  setState("error");
+}
   }, [simulateUpload]);
 
   /* ─── Drag handlers ─── */
