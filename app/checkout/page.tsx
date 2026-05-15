@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { CheckoutShell } from "@/components/checkout/CheckoutShell";
 import { StepLogin }     from "@/components/checkout/StepLogin";
@@ -23,11 +22,11 @@ const META = [
 export default function CheckoutPage() {
   const [step, setStep] = useState(0);
   const next = () => setStep((s) => Math.min(s + 1, META.length - 1));
-
+  const back = () => setStep((s) => Math.max(s - 1, 0));
   const { title, subtitle } = META[step];
 
   return (
-    <CheckoutShell step={step} title={title} subtitle={subtitle}>
+    <CheckoutShell step={step} title={title} subtitle={subtitle} onBack={back}>
       {step === 0 && <StepLogin     onNext={next} />}
       {step === 1 && <StepAddress   onNext={next} />}
       {step === 2 && <StepDelivery  onNext={next} />}
