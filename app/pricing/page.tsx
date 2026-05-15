@@ -37,7 +37,14 @@ export default function PricingPage() {
         if (!res.ok) throw new Error("Pricing failed");
         const data = await res.json();
         setPriceData(data);
-        setPrice({ total: data.final_price, breakdown: data });
+        setPrice({
+  pricePerUnit: Math.round(data.final_price / (quantity || 1)),
+  subtotal: data.base_display_price,
+  deliveryFee: data.delivery_charges,
+  total: data.final_price,
+  currency: "₹",
+  calculatedAt: new Date().toISOString(),
+});
       } catch (e: any) {
         setError("Could not fetch price. Using estimate.");
         setPriceData({ final_price: 1240, base_display_price: 1050, gst_amount: 190, delivery_charges: 0 });
