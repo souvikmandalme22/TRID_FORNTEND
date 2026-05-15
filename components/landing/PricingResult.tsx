@@ -198,11 +198,14 @@ export function PricingResult({
         {/* Horizontal rule */}
         <div className="my-6 h-px bg-border" />
 
-        {/* Summary rows */}
+{/* Summary rows */}
         <div className="text-left">
           <SummaryRow label="Material" value={`${material} — ${materialGrade}`} />
           <SummaryRow label="Use Case" value={useCase} />
           <SummaryRow label="Quantity" value={`${quantity} units`} />
+          <SummaryRow label="Base Price" value={`${currency}${formatPrice(Math.round(totalPrice * 0.72))}`} />
+          <SummaryRow label="GST (18%)" value={`${currency}${formatPrice(Math.round(totalPrice * 0.18))}`} />
+          <SummaryRow label="Delivery" value="Free" />
           <SummaryRow label="Est. Delivery" value="3–5 business days" />
         </div>
       </div>
