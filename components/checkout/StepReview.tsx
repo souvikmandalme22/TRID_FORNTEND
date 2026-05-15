@@ -1,6 +1,6 @@
 "use client";
-
 import { PrimaryCTA } from "./shared";
+import { useOrderStore } from "@/store";
 
 interface Props { onNext: () => void; }
 
@@ -14,6 +14,12 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
 }
 
 export function StepReview({ onNext }: Props) {
+  const { model, material, useCase, quantity, price } = useOrderStore();
+
+  const totalPrice  = price?.total || 0;
+  const deliveryFee = price?.deliveryFee || 0;
+  const subtotal    = price?.subtotal || 0;
+
   return (
     <div className="space-y-4">
       {/* Model */}
@@ -24,27 +30,25 @@ export function StepReview({ onNext }: Props) {
           </svg>
         </div>
         <div>
-          <p className="text-sm font-semibold text-text-primary">bracket_v3_final.stl</p>
-          <p className="text-xs text-text-muted">Resin · Standard Resin</p>
+          <p className="text-sm font-semibold text-text-primary">{model?.fileName || "model.stl"}</p>
+          <p className="text-xs text-text-muted">{material?.familyLabel} · {material?.gradeLabel}</p>
         </div>
       </div>
 
       {/* Summary */}
       <div className="bg-surface border border-border rounded-2xl px-4 py-1">
-        <Row label="Material" value="Standard Resin" />
-        <Row label="Use Case" value="Fit / Assembly" />
-        <Row label="Quantity" value="5 units" />
-        <Row label="Delivery" value="Standard (3–5 days)" />
-        <Row label="Delivery to" value="Mumbai, 400001" />
-        <Row label="Subtotal" value="₹6,200" />
-        <Row label="Delivery" value="Free" />
-        <Row label="Total" value="₹6,200" accent />
+        <Row label="Material"  value={material?.gradeLabel || "—"} />
+        <Row label="Use Case"  value={useCase || "—"} />
+        <Row label="Quantity"  value={`${quantity || 1} units`} />
+        <Row label="Delivery"  value="Standard (3–5 days)" />
+        <Row label="Subtotal"  value={`₹${subtotal.toLocaleString("en-IN")}`} />
+        <Row label="Delivery"  value={deliveryFee === 0 ? "Free" : `₹${deliveryFee}`} />
+        <Row label="Total"     value={`₹${totalPrice.toLocaleString("en-IN")}`} accent />
       </div>
 
       <p className="text-xs text-text-muted text-center">
-        By placing the order, you agree to TRID's manufacturing & return policy.
+        By placing the order, you agree to TRID&apos;s manufacturing & return policy.
       </p>
-
       <PrimaryCTA label="Proceed to Payment" onClick={onNext} />
     </div>
   );
