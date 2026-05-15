@@ -150,13 +150,13 @@ try {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(
-    "https://trid-bak.onrender.com/upload",
-    {
-      method: "POST",
-      body: formData,
-    }
-  );
+ const response = await fetch(
+  "https://trid-bak.onrender.com/api/v1/upload",
+  {
+    method: "POST",
+    body: formData,
+  }
+);
 
   if (!response.ok) {
     throw new Error("Upload failed");
