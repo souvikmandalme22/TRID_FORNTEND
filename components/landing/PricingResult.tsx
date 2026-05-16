@@ -21,6 +21,10 @@ interface PricingResultProps {
   supportVolumeCc?: number;
   effectiveVolumeCc?: number;
 
+  valuePoints?: string[];
+  warnings?: string[];
+  suggestions?: string[];
+
   onChangeMaterial?: () => void;
   onChangeQuantity?: () => void;
   onContinue?: () => void;
@@ -77,6 +81,10 @@ export function PricingResult({
   supportVolumeCc = 0,
   effectiveVolumeCc = 0,
 
+  valuePoints = [],
+  warnings = [],
+  suggestions = [],
+
   onChangeMaterial,
   onChangeQuantity,
   onContinue,
@@ -94,10 +102,10 @@ export function PricingResult({
       className="w-full max-w-5xl mx-auto space-y-4"
     >
 
-      {/* ─── TOP GRID ─── */}
+      {/* TOP GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* LEFT PRICE PANEL */}
+        {/* PRICE */}
         <div className="bg-surface border border-border rounded-3xl px-6 py-10 text-center">
 
           <p className="text-xs tracking-widest text-text-muted uppercase mb-4">
@@ -107,43 +115,37 @@ export function PricingResult({
           <AnimatedPrice value={totalPrice} currency={currency} />
 
           <p className="text-sm text-text-muted mt-3">
-            {currency}{formatPrice(pricePerUnit)} / unit · {quantity} unit(s)
+            {currency}{formatPrice(pricePerUnit)} / unit · {quantity}
           </p>
 
           <div className="my-6 border-t border-border" />
 
           {/* DETAILS */}
           <div className="text-left">
+
             <Row label="Material" value={`${material} — ${materialGrade}`} />
             <Row label="Use Case" value={useCase} />
             <Row label="Quantity" value={`${quantity}`} />
 
-            {/* TOTAL VOLUME */}
-            <div className="flex items-center justify-between py-3 border-b border-border">
-              <span className="text-sm text-text-muted flex items-center gap-1">
-                Total Volume
-                <span className="text-xs text-accent cursor-help" title="Model + Support volume">
-                  ⓘ
-                </span>
-              </span>
-              <span className="text-sm font-semibold text-text-primary">
+            <div className="flex justify-between py-3 border-b border-border">
+              <span className="text-sm text-text-muted">Total Volume</span>
+              <span className="text-sm font-semibold">
                 {totalVolume.toFixed(2)} cc
               </span>
             </div>
 
-            {/* EFFECTIVE VOLUME */}
             <Row label="Effective Volume" value={`${effectiveVolumeCc.toFixed(2)} cc`} />
           </div>
         </div>
 
-        {/* RIGHT 3D PREVIEW */}
+        {/* 3D VIEW */}
         <div className="bg-surface border border-border rounded-3xl overflow-hidden h-[360px]">
           <ModelPreview className="w-full h-full" />
         </div>
 
       </div>
 
-      {/* ─── ACTIONS ─── */}
+      {/* ACTIONS */}
       <div className="flex gap-3">
         <Button variant="secondary" className="flex-1" onClick={onChangeMaterial}>
           Change Material
