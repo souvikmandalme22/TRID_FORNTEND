@@ -1,26 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import { useRouter } from "next/navigation";
-
 import { motion } from "framer-motion";
 
 import { PricingResult } from "@/components/landing/PricingResult";
-
 import { Navbar } from "@/components/layout/Navbar";
-
 import { Container } from "@/components/ui";
-
 import { useOrderStore } from "@/store";
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://trid-bak.onrender.com/api/v1";
 
-
 export default function PricingPage() {
-
   const router = useRouter();
 
   const {
@@ -31,67 +24,33 @@ export default function PricingPage() {
     infillPercent,
   } = useOrderStore();
 
-  const setPrice = useOrderStore(
-    (s) => s.setPrice
-  );
+  const setPrice = useOrderStore((s) => s.setPrice);
 
-  const [priceData, setPriceData] =
-    useState<any>(null);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
-
+  const [priceData, setPriceData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-
     async function fetchPrice() {
-
       try {
-
-        // =========================================
-        // DUMMY ESTIMATION VALUES
-        // Later geometry engine replace karega
-        // =========================================
-
         const modelVolumeCc = 35;
-
-        const supportVolumeCc =
-          modelVolumeCc * 0.18;
-
-        // =========================================
-        // NEW BACKEND PAYLOAD
-        // =========================================
+        const supportVolumeCc = modelVolumeCc * 0.18;
 
         const payload = {
-
           material_slug:
             material?.gradeLabel
               ?.toLowerCase()
               .replace(/ /g, "-") || "pla",
 
-          quantity:
-            quantity || 1,
+          quantity: quantity || 1,
+          delivery_tier: "standard",
 
-          delivery_tier:
-            "standard",
+          model_volume_cc: modelVolumeCc,
+          support_volume_cc: supportVolumeCc,
 
-          model_volume_cc:
-            modelVolumeCc,
-
-          support_volume_cc:
-            supportVolumeCc,
-
-          infill_percent:
-            infillPercent || 20,
-
-          layer_height:
-            0.2,
-
-          estimated_print_time_hours:
-            4.5,
+          infill_percent: infillPercent || 20,
+          layer_height: 0.2,
+          estimated_print_time_hours: 4.5,
 
           complexity_features: {
             thin_wall: false,
@@ -111,91 +70,36 @@ export default function PricingPage() {
           },
         };
 
-        // =========================================
-        // API CALL
-        // =========================================
-
-        const res = await fetch(
-          `${API}/pricing/quick-calculate`,
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type": "application/json",
-            },
-
-            body: JSON.stringify(payload),
-          }
-        );
-
-        // =========================================
-        // ERROR HANDLING
-        // =========================================
+        const res = await fetch(`${API}/pricing/quick-calculate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
         if (!res.ok) {
-
-          const errText =
-            await res.text();
-
-          console.error(
-            "Pricing API Error:",
-            errText
-          );
-
-          throw new Error(
-            "Pricing failed"
-          );
+          const errText = await res.text();
+          console.error("Pricing API Error:", errText);
+          throw new Error("Pricing failed");
         }
 
-        const data =
-          await res.json();
-
-        console.log(
-          "Pricing Success:",
-          data
-        );
+        const data = await res.json();
+        console.log("Pricing Success:", data);
 
         setPriceData(data);
 
-        // =========================================
-        // STORE UPDATE
-        // =========================================
-
         setPrice({
-
-          pricePerUnit:
-            Math.round(
-              data.final_price /
-              (quantity || 1)
-            ),
-
-          subtotal:
-            data.subtotal || 0,
-
-          deliveryFee:
-            data.delivery_fee || 0,
-
-          total:
-            data.final_price || 0,
-
-          currency:
-            "₹",
-
-          calculatedAt:
-            new Date().toISOString(),
+          pricePerUnit: Math.round(
+            data.final_price / (quantity || 1)
+          ),
+          subtotal: data.subtotal || 0,
+          deliveryFee: data.delivery_fee || 0,
+          total: data.final_price || 0,
+          currency: "₹",
+          calculatedAt: new Date().toISOString(),
         });
-
-      } catch (e: any) {
-
+      } catch (e) {
         console.error(e);
-
-        setError(
-          "Could not fetch live price. Using estimate."
-        );
-
-        // =========================================
-        // FALLBACK
-        // =========================================
+        setError("Could not fetch live price. Using estimate.");
 
         setPriceData({
           final_price: 1240,
@@ -203,66 +107,38 @@ export default function PricingPage() {
           gst_amount: 190,
           delivery_fee: 0,
         });
-
       } finally {
-
         setLoading(false);
       }
     }
 
     fetchPrice();
-
   }, []);
 
+  const pricePerUnit = priceData
+    ? Math.round(priceData.final_price / (quantity || 1))
+    : 1240;
 
-  const pricePerUnit =
-    priceData
-      ? Math.round(
-          priceData.final_price /
-          (quantity || 1)
-        )
-      : 1240;
-
-  const totalPrice =
-    priceData?.final_price || 1240;
-
+  const totalPrice = priceData?.final_price || 1240;
 
   return (
     <>
       <Navbar />
 
       <main className="min-h-screen flex items-center justify-center pt-20 pb-16">
-
         <Container>
-
           <motion.div
-            initial={{
-              opacity: 0,
-              y: 20,
-            }}
-
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-
-            transition={{
-              duration: 0.5,
-            }}
-
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
             className="text-center mb-10"
           >
-
             <span className="text-accent text-sm font-semibold tracking-widest uppercase mb-4 block">
               Instant Quote
             </span>
 
             <h1 className="text-4xl md:text-5xl font-bold text-text-primary tracking-tight mb-3">
-
-              {loading
-                ? "Calculating..."
-                : "Your Price"}
-
+              {loading ? "Calculating..." : "Your Price"}
             </h1>
 
             <p className="text-text-secondary text-lg">
@@ -270,9 +146,7 @@ export default function PricingPage() {
             </p>
 
             {error && (
-              <p className="text-yellow-400 text-sm mt-2">
-                {error}
-              </p>
+              <p className="text-yellow-400 text-sm mt-2">{error}</p>
             )}
 
             {infillPercent && (
@@ -280,45 +154,17 @@ export default function PricingPage() {
                 Infill: {infillPercent}%
               </p>
             )}
-
           </motion.div>
 
           {!loading && (
-
             <PricingResult
-
-              modelName={
-                model?.fileName ||
-                "your-model.stl"
-              }
-
-              material={
-                material?.familyLabel ||
-                "PLA"
-              }
-
-              materialGrade={
-                material?.gradeLabel ||
-                "PLA"
-              }
-
-              useCase={
-                useCase ||
-                "General Use"
-              }
-
-              quantity={
-                quantity || 1
-              }
-
-              pricePerUnit={
-                pricePerUnit
-              }
-
-              totalPrice={
-                totalPrice
-              }
-
+              modelName={model?.fileName || "your-model.stl"}
+              material={material?.familyLabel || "PLA"}
+              materialGrade={material?.gradeLabel || "PLA"}
+              useCase={useCase || "General Use"}
+              quantity={quantity || 1}
+              pricePerUnit={pricePerUnit}
+              totalPrice={totalPrice}
               currency="₹"
 
               valuePoints={[
@@ -326,32 +172,21 @@ export default function PricingPage() {
                 "Orientation-aware costing enabled",
                 "Infill-aware manufacturing estimation",
               ]}
-
               warnings={[]}
-
               suggestions={[
                 "Lower infill reduces manufacturing cost",
                 "Complex geometry increases support requirement",
               ]}
 
-              onChangeMaterial={() =>
-                router.push("/material")
-              }
+              onChangeMaterial={() => router.push("/material")}
+              onChangeQuantity={() => router.push("/environment")}
+              onContinue={() => router.push("/checkout")}
 
-              onChangeQuantity={() =>
-                router.push("/environment")
-              }
-
-              onContinue={() =>
-                router.push("/checkout")
-              }
-
+              // ✅ IMPORTANT FIX (MODEL SHOW ISSUE SOLVED)
+              file={model?.file || null}
             />
-
           )}
-
         </Container>
-
       </main>
     </>
   );
