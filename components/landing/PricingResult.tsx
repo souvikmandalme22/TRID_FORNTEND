@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { Button } from "@/components/ui";
-import ModelPreview from "@/components/viewer/ModelPreview";
+import { ModelViewer } from "@/components/viewer/ModelViewer";
 
 /* ─── Types ─── */
 
@@ -17,10 +17,6 @@ interface PricingResultProps {
   totalPrice: number;
   currency?: string;
 
-  modelVolumeCc?: number;
-  supportVolumeCc?: number;
-  effectiveVolumeCc?: number;
-
   valuePoints?: string[];
   warnings?: string[];
   suggestions?: string[];
@@ -28,6 +24,10 @@ interface PricingResultProps {
   onChangeMaterial?: () => void;
   onChangeQuantity?: () => void;
   onContinue?: () => void;
+
+  modelVolumeCc?: number;
+  supportVolumeCc?: number;
+  effectiveVolumeCc?: number;
 }
 
 /* ─── Utils ─── */
@@ -36,25 +36,7 @@ function formatPrice(n: number) {
   return n.toLocaleString("en-IN");
 }
 
-/* ─── Animated Price ─── */
-
-function AnimatedPrice({ value, currency }: { value: number; currency: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5 }}
-      className="flex items-start justify-center gap-2"
-    >
-      <span className="text-3xl font-bold text-text-secondary mt-3">{currency}</span>
-      <span className="text-6xl font-extrabold text-text-primary">
-        {formatPrice(value)}
-      </span>
-    </motion.div>
-  );
-}
-
-/* ─── Row ─── */
+/* ─── UI ─── */
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -62,6 +44,24 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="text-sm text-text-muted">{label}</span>
       <span className="text-sm font-semibold text-text-primary">{value}</span>
     </div>
+  );
+}
+
+function AnimatedPrice({ value, currency }: { value: number; currency: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4 }}
+      className="flex items-start justify-center gap-2"
+    >
+      <span className="text-3xl font-bold text-text-secondary mt-2">
+        {currency}
+      </span>
+      <span className="text-6xl font-extrabold text-text-primary">
+        {formatPrice(value)}
+      </span>
+    </motion.div>
   );
 }
 
@@ -101,48 +101,45 @@ export function PricingResult({
       animate={inView ? { opacity: 1, y: 0 } : {}}
       className="w-full max-w-5xl mx-auto space-y-4"
     >
-
-      {/* TOP GRID */}
+      {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* PRICE */}
+        {/* LEFT PRICE */}
         <div className="bg-surface border border-border rounded-3xl px-6 py-10 text-center">
 
-          <p className="text-xs tracking-widest text-text-muted uppercase mb-4">
+          <p className="text-xs uppercase tracking-widest text-text-muted mb-4">
             Total Price
           </p>
 
           <AnimatedPrice value={totalPrice} currency={currency} />
 
           <p className="text-sm text-text-muted mt-3">
-            {currency}{formatPrice(pricePerUnit)} / unit · {quantity}
+            {currency}{formatPrice(pricePerUnit)} / unit · {quantity} unit(s)
           </p>
 
           <div className="my-6 border-t border-border" />
 
-          {/* DETAILS */}
           <div className="text-left">
-
             <Row label="Material" value={`${material} — ${materialGrade}`} />
             <Row label="Use Case" value={useCase} />
             <Row label="Quantity" value={`${quantity}`} />
 
-            <div className="flex justify-between py-3 border-b border-border">
-              <span className="text-sm text-text-muted">Total Volume</span>
-              <span className="text-sm font-semibold">
-                {totalVolume.toFixed(2)} cc
-              </span>
-            </div>
+            <Row
+              label="Total Volume"
+              value={`${totalVolume.toFixed(2)} cc`}
+            />
 
-            <Row label="Effective Volume" value={`${effectiveVolumeCc.toFixed(2)} cc`} />
+            <Row
+              label="Effective Volume"
+              value={`${effectiveVolumeCc.toFixed(2)} cc`}
+            />
           </div>
         </div>
 
-        {/* 3D VIEW */}
+        {/* RIGHT 3D VIEW */}
         <div className="bg-surface border border-border rounded-3xl overflow-hidden h-[360px]">
-          <ModelPreview className="w-full h-full" />
+          <ModelViewer />
         </div>
-
       </div>
 
       {/* ACTIONS */}
@@ -159,7 +156,6 @@ export function PricingResult({
           Continue to Order
         </Button>
       </div>
-
     </motion.div>
   );
 }
