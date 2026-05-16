@@ -28,6 +28,9 @@ interface PricingResultProps {
   modelVolumeCc?: number;
   supportVolumeCc?: number;
   effectiveVolumeCc?: number;
+
+  // ✅ FIX: ADD FILE SUPPORT
+  file?: File | null;
 }
 
 /* ─── Utils ─── */
@@ -88,6 +91,8 @@ export function PricingResult({
   onChangeMaterial,
   onChangeQuantity,
   onContinue,
+
+  file, // ✅ NEW
 }: PricingResultProps) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true });
@@ -101,12 +106,10 @@ export function PricingResult({
       animate={inView ? { opacity: 1, y: 0 } : {}}
       className="w-full max-w-5xl mx-auto space-y-4"
     >
-      {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* LEFT PRICE */}
+        {/* LEFT */}
         <div className="bg-surface border border-border rounded-3xl px-6 py-10 text-center">
-
           <p className="text-xs uppercase tracking-widest text-text-muted mb-4">
             Total Price
           </p>
@@ -123,22 +126,24 @@ export function PricingResult({
             <Row label="Material" value={`${material} — ${materialGrade}`} />
             <Row label="Use Case" value={useCase} />
             <Row label="Quantity" value={`${quantity}`} />
-
-            <Row
-              label="Total Volume"
-              value={`${totalVolume.toFixed(2)} cc`}
-            />
-
-            <Row
-              label="Effective Volume"
-              value={`${effectiveVolumeCc.toFixed(2)} cc`}
-            />
+            <Row label="Total Volume" value={`${totalVolume.toFixed(2)} cc`} />
+            <Row label="Effective Volume" value={`${effectiveVolumeCc.toFixed(2)} cc`} />
           </div>
         </div>
 
         {/* RIGHT 3D VIEW */}
         <div className="bg-surface border border-border rounded-3xl overflow-hidden h-[360px]">
-          <ModelViewer />
+          {file ? (
+            <ModelViewer
+              file={file}
+              onConfirm={() => {}}
+              onReupload={() => {}}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-text-muted">
+              No Model Loaded
+            </div>
+          )}
         </div>
       </div>
 
