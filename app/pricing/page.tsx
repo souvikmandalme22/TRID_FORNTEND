@@ -38,9 +38,7 @@ export default function PricingPage() {
 
         const payload = {
           material_slug:
-            material?.gradeLabel
-              ?.toLowerCase()
-              .replace(/ /g, "-") || "pla",
+            material?.gradeLabel?.toLowerCase().replace(/ /g, "-") || "pla",
 
           quantity: quantity || 1,
           delivery_tier: "standard",
@@ -83,20 +81,17 @@ export default function PricingPage() {
         }
 
         const data = await res.json();
-        console.log("Pricing Success:", data);
-
         setPriceData(data);
 
         setPrice({
-          pricePerUnit: Math.round(
-            data.final_price / (quantity || 1)
-          ),
+          pricePerUnit: Math.round(data.final_price / (quantity || 1)),
           subtotal: data.subtotal || 0,
           deliveryFee: data.delivery_fee || 0,
           total: data.final_price || 0,
           currency: "₹",
           calculatedAt: new Date().toISOString(),
         });
+
       } catch (e) {
         console.error(e);
         setError("Could not fetch live price. Using estimate.");
@@ -182,8 +177,8 @@ export default function PricingPage() {
               onChangeQuantity={() => router.push("/environment")}
               onContinue={() => router.push("/checkout")}
 
-              // ✅ IMPORTANT FIX (MODEL SHOW ISSUE SOLVED)
-              file={model?.file || null}
+              // ✅ FINAL FIX
+              file={model as any}
             />
           )}
         </Container>
