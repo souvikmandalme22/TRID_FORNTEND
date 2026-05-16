@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useLoader } from "@react-three/fiber";
+import { useLoader, useThree } from "@react-three/fiber";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import * as THREE from "three";
@@ -12,37 +12,24 @@ interface ModelSceneProps {
   onDimensions: (dims: { x: number; y: number; z: number }) => void;
 }
 
-/* ─────────────────────────────
-   STL
-───────────────────────────── */
-function STLModel({
-  url,
-  onDimensions,
-}: {
-  url: string;
-  onDimensions: ModelSceneProps["onDimensions"];
-}) {
+function STLModel({ url, onDimensions }: any) {
   const geometry = useLoader(STLLoader, url);
 
-  const { meshGeometry, dimensions } = useMemo(() => {
-    // IMPORTANT: clone so we don't mutate cached geometry
-    const geo = geometry.clone();
+  const data = useMemo(() => {
+    geometry.computeBoundingBox();
 
-    geo.computeBoundingBox();
-
-    const box = geo.boundingBox!;
+    const box = geometry.boundingBox!;
     const size = new THREE.Vector3();
     const center = new THREE.Vector3();
 
     box.getSize(size);
     box.getCenter(center);
 
-    // center geometry safely
-    geo.translate(-center.x, -center.y, -center.z);
+    geometry.translate(-center.x, -center.y, -center.z);
 
     return {
-      meshGeometry: geo,
-      dimensions: {
+      geometry,
+      dims: {
         x: Number(size.x.toFixed(2)),
         y: Number(size.y.toFixed(2)),
         z: Number(size.z.toFixed(2)),
@@ -51,62 +38,42 @@ function STLModel({
   }, [geometry]);
 
   useEffect(() => {
-    onDimensions(dimensions);
-  }, [dimensions, onDimensions]);
+    onDimensions(data.dims);
+  }, [data]);
 
   return (
-    <mesh geometry={meshGeometry} castShadow receiveShadow>
-      <meshStandardMaterial
-        color="#B0BEC5"
-        metalness={0.25}
-        roughness={0.6}
-      />
+    <mesh geometry={data.geometry}>
+      <meshStandardMaterial color="#B0BEC5" metalness={0.3} roughness={0.6} />
     </mesh>
   );
 }
 
-/* ─────────────────────────────
-   OBJ
-───────────────────────────── */
-function OBJModel({
-  url,
-  onDimensions,
-}: {
-  url: string;
-  onDimensions: ModelSceneProps["onDimensions"];
-}) {
+function OBJModel({ url, onDimensions }: any) {
   const obj = useLoader(OBJLoader, url);
 
-  const { scene, dimensions } = useMemo(() => {
-    const cloned = obj.clone(true);
-
-    const box = new THREE.Box3().setFromObject(cloned);
+  const data = useMemo(() => {
+    const box = new THREE.Box3().setFromObject(obj);
     const size = new THREE.Vector3();
     const center = new THREE.Vector3();
 
     box.getSize(size);
     box.getCenter(center);
 
-    cloned.position.sub(center);
+    obj.position.sub(center);
 
-    cloned.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-
-        mesh.material = new THREE.MeshStandardMaterial({
+    obj.traverse((child: any) => {
+      if (child.isMesh) {
+        child.material = new THREE.MeshStandardMaterial({
           color: "#B0BEC5",
-          metalness: 0.25,
+          metalness: 0.3,
           roughness: 0.6,
         });
       }
     });
 
     return {
-      scene: cloned,
-      dimensions: {
+      obj,
+      dims: {
         x: Number(size.x.toFixed(2)),
         y: Number(size.y.toFixed(2)),
         z: Number(size.z.toFixed(2)),
@@ -115,24 +82,21 @@ function OBJModel({
   }, [obj]);
 
   useEffect(() => {
-    onDimensions(dimensions);
-  }, [dimensions, onDimensions]);
+    onDimensions(data.dims);
+  }, [data]);
 
-  return <primitive object={scene} />;
+  return <primitive object={data.obj} />;
 }
 
-/* ─────────────────────────────
-   MAIN
-───────────────────────────── */
-export function ModelScene({
-  url,
-  fileType,
-  onDimensions,
-}: ModelSceneProps) {
-  // STEP fallback (important)
-  if (fileType === "step") {
-    return null;
-  }
+export function ModelScene({ url, fileType, onDimensions }: ModelSceneProps) {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    camera.position.set(80, 60, 120);
+    camera.lookAt(0, 0, 0);
+  }, [camera]);
+
+  if (!url) return null;
 
   if (fileType === "obj") {
     return <OBJModel url={url} onDimensions={onDimensions} />;
