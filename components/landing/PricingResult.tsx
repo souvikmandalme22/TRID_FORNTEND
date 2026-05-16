@@ -17,18 +17,13 @@ interface PricingResultProps {
   totalPrice: number;
   currency?: string;
 
-  valuePoints?: string[];
-  warnings?: string[];
-  suggestions?: string[];
+  modelVolumeCc?: number;
+  supportVolumeCc?: number;
+  effectiveVolumeCc?: number;
 
   onChangeMaterial?: () => void;
   onChangeQuantity?: () => void;
   onContinue?: () => void;
-
-  // volume data
-  modelVolumeCc?: number;
-  supportVolumeCc?: number;
-  effectiveVolumeCc?: number;
 }
 
 /* ─── Utils ─── */
@@ -37,7 +32,7 @@ function formatPrice(n: number) {
   return n.toLocaleString("en-IN");
 }
 
-/* ─── Price ─── */
+/* ─── Animated Price ─── */
 
 function AnimatedPrice({ value, currency }: { value: number; currency: string }) {
   return (
@@ -60,9 +55,7 @@ function AnimatedPrice({ value, currency }: { value: number; currency: string })
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-3 border-b border-border">
-      <span className="text-sm text-text-muted flex items-center gap-1">
-        {label}
-      </span>
+      <span className="text-sm text-text-muted">{label}</span>
       <span className="text-sm font-semibold text-text-primary">{value}</span>
     </div>
   );
@@ -101,10 +94,10 @@ export function PricingResult({
       className="w-full max-w-5xl mx-auto space-y-4"
     >
 
-      {/* ───── TOP GRID ───── */}
+      {/* ─── TOP GRID ─── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* LEFT PRICE */}
+        {/* LEFT PRICE PANEL */}
         <div className="bg-surface border border-border rounded-3xl px-6 py-10 text-center">
 
           <p className="text-xs tracking-widest text-text-muted uppercase mb-4">
@@ -121,19 +114,15 @@ export function PricingResult({
 
           {/* DETAILS */}
           <div className="text-left">
-
             <Row label="Material" value={`${material} — ${materialGrade}`} />
             <Row label="Use Case" value={useCase} />
             <Row label="Quantity" value={`${quantity}`} />
 
-            {/* VOLUME */}
+            {/* TOTAL VOLUME */}
             <div className="flex items-center justify-between py-3 border-b border-border">
               <span className="text-sm text-text-muted flex items-center gap-1">
                 Total Volume
-                <span
-                  title="Model + Support volume combined. Different printers calculate support differently."
-                  className="cursor-help text-xs text-accent"
-                >
+                <span className="text-xs text-accent cursor-help" title="Model + Support volume">
                   ⓘ
                 </span>
               </span>
@@ -142,19 +131,19 @@ export function PricingResult({
               </span>
             </div>
 
+            {/* EFFECTIVE VOLUME */}
             <Row label="Effective Volume" value={`${effectiveVolumeCc.toFixed(2)} cc`} />
-
           </div>
         </div>
 
-        {/* RIGHT 3D VIEW */}
+        {/* RIGHT 3D PREVIEW */}
         <div className="bg-surface border border-border rounded-3xl overflow-hidden h-[360px]">
           <ModelPreview className="w-full h-full" />
         </div>
 
       </div>
 
-      {/* ───── ACTIONS ───── */}
+      {/* ─── ACTIONS ─── */}
       <div className="flex gap-3">
         <Button variant="secondary" className="flex-1" onClick={onChangeMaterial}>
           Change Material
