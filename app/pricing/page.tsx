@@ -16,40 +16,36 @@ const API =
 export default function PricingPage() {
   const router = useRouter();
 
-  const {
-    model,
-    material,
-    useCase,
-    quantity,
-    infillPercent,
-  } = useOrderStore();
+  const model        = useOrderStore((s) => s.model);
+  const material     = useOrderStore((s) => s.material);
+  const useCase      = useOrderStore((s) => s.useCase);
+  const quantity     = useOrderStore((s) => s.quantity);
+  const infillPercent= useOrderStore((s) => s.infillPercent);
+  const setPrice     = useOrderStore((s) => s.setPrice);
 
-  const setPrice = useOrderStore((s) => s.setPrice);
+  // ✅ FIX: real File object from store (not model as any)
+  const file = useOrderStore((s) => s.file);
 
   const [priceData, setPriceData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState("");
 
   useEffect(() => {
     async function fetchPrice() {
       try {
-        const modelVolumeCc = 35;
+        const modelVolumeCc   = 35;
         const supportVolumeCc = modelVolumeCc * 0.18;
 
         const payload = {
           material_slug:
             material?.gradeLabel?.toLowerCase().replace(/ /g, "-") || "pla",
-
           quantity: quantity || 1,
           delivery_tier: "standard",
-
           model_volume_cc: modelVolumeCc,
           support_volume_cc: supportVolumeCc,
-
           infill_percent: infillPercent || 20,
           layer_height: 0.2,
           estimated_print_time_hours: 4.5,
-
           complexity_features: {
             thin_wall: false,
             internal_channels: false,
@@ -59,7 +55,6 @@ export default function PricingPage() {
             tiny_features: false,
             tolerance_critical: false,
           },
-
           orientation_analysis: {
             stability_score: 0.82,
             failure_risk: 0.15,
@@ -85,21 +80,20 @@ export default function PricingPage() {
 
         setPrice({
           pricePerUnit: Math.round(data.final_price / (quantity || 1)),
-          subtotal: data.subtotal || 0,
-          deliveryFee: data.delivery_fee || 0,
-          total: data.final_price || 0,
-          currency: "₹",
+          subtotal:     data.subtotal || 0,
+          deliveryFee:  data.delivery_fee || 0,
+          total:        data.final_price || 0,
+          currency:     "₹",
           calculatedAt: new Date().toISOString(),
         });
 
       } catch (e) {
         console.error(e);
         setError("Could not fetch live price. Using estimate.");
-
         setPriceData({
-          final_price: 1240,
-          subtotal: 1050,
-          gst_amount: 190,
+          final_price:  1240,
+          subtotal:     1050,
+          gst_amount:   190,
           delivery_fee: 0,
         });
       } finally {
@@ -161,7 +155,6 @@ export default function PricingPage() {
               pricePerUnit={pricePerUnit}
               totalPrice={totalPrice}
               currency="₹"
-
               valuePoints={[
                 "Support-aware pricing enabled",
                 "Orientation-aware costing enabled",
@@ -172,13 +165,10 @@ export default function PricingPage() {
                 "Lower infill reduces manufacturing cost",
                 "Complex geometry increases support requirement",
               ]}
-
               onChangeMaterial={() => router.push("/material")}
               onChangeQuantity={() => router.push("/environment")}
               onContinue={() => router.push("/checkout")}
-
-              // ✅ FINAL FIX
-              file={model as any}
+              file={file}   // ✅ FIX: real File object, null-safe
             />
           )}
         </Container>
