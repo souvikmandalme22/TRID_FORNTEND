@@ -12,7 +12,8 @@ const API = process.env.NEXT_PUBLIC_API_URL || "https://trid-bak.onrender.com/ap
 export default function PricingPage() {
   const router = useRouter();
   const { model, material, useCase, quantity } = useOrderStore();
-  const setPrice = useOrderStore((s) => s.setPrice);
+  const setPrice        = useOrderStore((s) => s.setPrice);
+  const infillPercent   = useOrderStore((s) => s.infillPercent);
 
   const [priceData, setPriceData] = useState<any>(null);
   const [loading, setLoading]     = useState(true);
@@ -21,12 +22,16 @@ export default function PricingPage() {
   useEffect(() => {
     async function fetchPrice() {
       try {
+        const effectiveCc = infillPercent
+          ? Math.max(1, 10 * infillPercent / 100)
+          : 10;
+
         const res = await fetch(`${API}/pricing/quick-calculate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             material_key:                material?.gradeLabel?.toLowerCase().replace(/ /g, "-") || "pla",
-            final_effective_material_cc: 10,
+            final_effective_material_cc: effectiveCc,
             quantity:                    quantity || 1,
             delivery_type:               "standard",
           }),
@@ -68,6 +73,9 @@ export default function PricingPage() {
             </h1>
             <p className="text-text-secondary text-lg">No hidden fees. No surprises. Ready to order.</p>
             {error && <p className="text-yellow-400 text-sm mt-2">{error}</p>}
+            {infillPercent && (
+              <p className="text-text-muted text-xs mt-1">Infill: {infillPercent}%</p>
+            )}
           </motion.div>
           {!loading && (
             <PricingResult
