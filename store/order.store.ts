@@ -2,15 +2,13 @@ import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 
-/* ─── Types ─── */
-
 export interface ModelData {
   fileName: string;
-  fileSize: number;          // bytes
+  fileSize: number;
   fileType: "stl" | "obj" | "step";
   dimensions: { x: number; y: number; z: number } | null;
-  objectUrl: string | null;  // revoked after session
-  uploadedAt: string;        // ISO string
+  objectUrl: string | null;
+  uploadedAt: string;
 }
 
 export interface MaterialSelection {
@@ -30,66 +28,38 @@ export interface PriceBreakdown {
 }
 
 export interface OrderState {
-  /* Step tracking */
   currentStep: number;
-
-  /* Step 1 — Upload */
   file: File | null;
   model: ModelData | null;
-
-  /* Step 2 — Category / Segment */
   segment: string | null;
-
-  /* Step 3 — Material */
   material: MaterialSelection | null;
-
-  /* Step 4 — Use case */
   useCase: string | null;
-
-  /* Step 5 — Environment + Quantity */
   environments: string[];
   quantity: number;
-
-  /* Step 6 — Computed price */
+  infillPercent: number | null;
   price: PriceBreakdown | null;
-
-  /* Meta */
   orderId: string | null;
   orderPlacedAt: string | null;
 }
 
 interface OrderActions {
-  /* Navigation */
   setStep: (step: number) => void;
   nextStep: () => void;
   prevStep: () => void;
-
-  /* File + model */
   setFile: (file: File) => void;
   setModelData: (data: Partial<ModelData>) => void;
   clearFile: () => void;
-
-  /* Selections */
   setSegment: (segment: string) => void;
   setMaterial: (material: MaterialSelection) => void;
   setUseCase: (useCase: string) => void;
   setEnvironments: (envs: string[]) => void;
   setQuantity: (qty: number) => void;
-
-  /* Price */
+  setInfillPercent: (pct: number | null) => void;
   setPrice: (price: PriceBreakdown) => void;
-
-  /* Order */
   setOrderId: (id: string) => void;
-
-  /* Reset */
   reset: () => void;
-
-  /* Backend-ready serializer */
   toOrderPayload: () => OrderPayload | null;
 }
-
-/* ─── Backend payload type ─── */
 
 export interface OrderPayload {
   model: ModelData;
@@ -98,10 +68,9 @@ export interface OrderPayload {
   useCase: string;
   environments: string[];
   quantity: number;
+  infillPercent: number | null;
   price: PriceBreakdown;
 }
-
-/* ─── Initial state ─── */
 
 const INITIAL: OrderState = {
   currentStep: 0,
@@ -112,12 +81,11 @@ const INITIAL: OrderState = {
   useCase: null,
   environments: [],
   quantity: 1,
+  infillPercent: null,
   price: null,
   orderId: null,
   orderPlacedAt: null,
 };
-
-/* ─── Store ─── */
 
 export const useOrderStore = create<OrderState & OrderActions>()(
   devtools(
@@ -125,7 +93,6 @@ export const useOrderStore = create<OrderState & OrderActions>()(
       immer((set, get) => ({
         ...INITIAL,
 
-        /* ── Navigation ── */
         setStep: (step) =>
           set((s) => { s.currentStep = step; }, false, "setStep"),
 
@@ -135,11 +102,9 @@ export const useOrderStore = create<OrderState & OrderActions>()(
         prevStep: () =>
           set((s) => { if (s.currentStep > 0) s.currentStep -= 1; }, false, "prevStep"),
 
-        /* ── File ── */
         setFile: (file) =>
           set((s) => {
             s.file = file;
-            // Derive ModelData skeleton from file — dimensions filled later by viewer
             s.model = {
               fileName: file.name,
               fileSize: file.size,
@@ -163,7 +128,6 @@ export const useOrderStore = create<OrderState & OrderActions>()(
             s.model = null;
           }, false, "clearFile"),
 
-        /* ── Selections ── */
         setSegment: (segment) =>
           set((s) => { s.segment = segment; }, false, "setSegment"),
 
@@ -179,44 +143,43 @@ export const useOrderStore = create<OrderState & OrderActions>()(
         setQuantity: (qty) =>
           set((s) => { s.quantity = qty; }, false, "setQuantity"),
 
-        /* ── Price ── */
+        setInfillPercent: (pct) =>
+          set((s) => { s.infillPercent = pct; }, false, "setInfillPercent"),
+
         setPrice: (price) =>
           set((s) => { s.price = price; }, false, "setPrice"),
 
-        /* ── Order ── */
         setOrderId: (id) =>
           set((s) => {
             s.orderId = id;
             s.orderPlacedAt = new Date().toISOString();
           }, false, "setOrderId"),
 
-        /* ── Reset ── */
         reset: () =>
           set((s) => {
             if (s.model?.objectUrl) URL.revokeObjectURL(s.model.objectUrl);
             return { ...s, ...INITIAL };
           }, false, "reset"),
 
-        /* ── Backend serializer ── */
         toOrderPayload: () => {
-          const { model, segment, material, useCase, environments, quantity, price } = get();
+          const { model, segment, material, useCase, environments, quantity, infillPercent, price } = get();
           if (!model || !segment || !material || !useCase || !price) return null;
-          return { model, segment, material, useCase, environments, quantity, price };
+          return { model, segment, material, useCase, environments, quantity, infillPercent, price };
         },
       })),
       {
         name: "trid-order",
-        // Don't persist File object (not serializable)
         partialize: (s) => ({
-          currentStep:  s.currentStep,
-          model:        s.model ? { ...s.model, objectUrl: null } : null,
-          segment:      s.segment,
-          material:     s.material,
-          useCase:      s.useCase,
-          environments: s.environments,
-          quantity:     s.quantity,
-          price:        s.price,
-          orderId:      s.orderId,
+          currentStep:   s.currentStep,
+          model:         s.model ? { ...s.model, objectUrl: null } : null,
+          segment:       s.segment,
+          material:      s.material,
+          useCase:       s.useCase,
+          environments:  s.environments,
+          quantity:      s.quantity,
+          infillPercent: s.infillPercent,
+          price:         s.price,
+          orderId:       s.orderId,
           orderPlacedAt: s.orderPlacedAt,
         }),
       }
@@ -224,8 +187,6 @@ export const useOrderStore = create<OrderState & OrderActions>()(
     { name: "TRID Order Store" }
   )
 );
-
-/* ─── Selectors ─── */
 
 export const selectIsReadyForPricing = (s: OrderState) =>
   !!(s.model && s.segment && s.material && s.useCase && s.environments.length > 0 && s.quantity > 0);
@@ -235,17 +196,11 @@ export const selectIsReadyForCheckout = (s: OrderState) =>
 
 export const selectProgress = (s: OrderState) => {
   const steps = [
-    !!s.model,
-    !!s.segment,
-    !!s.material,
-    !!s.useCase,
-    s.environments.length > 0,
-    !!s.price,
+    !!s.model, !!s.segment, !!s.material,
+    !!s.useCase, s.environments.length > 0, !!s.price,
   ];
   return Math.round((steps.filter(Boolean).length / steps.length) * 100);
 };
-
-/* ─── Helpers ─── */
 
 function getFileType(name: string): ModelData["fileType"] {
   const ext = name.split(".").pop()?.toLowerCase();
