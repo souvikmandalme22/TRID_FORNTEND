@@ -16,6 +16,8 @@ interface PricingResultProps {
   totalPrice      : number;
   currency?       : string;
   basePrice       : number;
+  platformFee?    : number;
+  packagingFee?   : number;
   gstAmount       : number;
   gstRate         : number;
   deliveryCharges : number;
@@ -142,7 +144,7 @@ function CouponBox({ baseAmount, onDiscount }: {
 export function PricingResult({
   modelName, material, materialGrade, useCase, quantity,
   pricePerUnit, totalPrice, currency = "₹",
-  basePrice, gstAmount, gstRate, deliveryCharges,
+  basePrice, platformFee = 0, packagingFee = 0, gstAmount, gstRate, deliveryCharges,
   modelVolumeCc, supportVolumeCc, effectiveVolumeCc,
   valuePoints = [], warnings = [],
   onChangeMaterial, onChangeQuantity, onContinue,
@@ -212,7 +214,13 @@ export function PricingResult({
 
           <div className="my-1" />
 
-          <Row label="Base Price"                       value={`${currency}${fmt(basePrice)}`} />
+          <Row label="Print Cost"                       value={`${currency}${fmt(basePrice)}`} />
+          {platformFee > 0 && (
+            <Row label="Service Fee" value={`${currency}${fmt(platformFee)}`} />
+          )}
+          {packagingFee > 0 && (
+            <Row label="Packaging" value={`${currency}${fmt(packagingFee)}`} />
+          )}
           <Row label={`GST (${Math.round(gstRate * 100)}%)`} value={`${currency}${fmt(gstAmount)}`} />
           <Row
             label="Delivery"

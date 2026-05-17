@@ -139,15 +139,23 @@ export default function PricingPage() {
 
         const finalPrice = data.final_price || 0;
         const delivery   = data.delivery_fee ?? data.delivery_charges ?? 0;
-        const withGst    = finalPrice - delivery;
-        const base       = parseFloat((withGst / (1 + GST_RATE)).toFixed(2));
-        const gst        = parseFloat((withGst - base).toFixed(2));
+        const base       = data.adjusted_manufacturing_cost ?? data.base_display_price ?? 0;
+        const gst        = data.gst_amount ?? 0;
+        const platform   = data.platform_fee ?? 0;
+        const packaging  = data.packaging_fee ?? 0;
 
-        setPriceData({ final_price: finalPrice, base_price: base, gst_amount: gst, delivery_charges: delivery });
+        setPriceData({
+          final_price:      finalPrice,
+          base_price:       base,
+          platform_fee:     platform,
+          packaging_fee:    packaging,
+          gst_amount:       gst,
+          delivery_charges: delivery,
+        });
 
         setPrice({
           pricePerUnit: Math.round(finalPrice / (quantity || 1)),
-          subtotal:     base,
+          subtotal:     base + platform + packaging,
           deliveryFee:  delivery,
           total:        finalPrice,
           currency:     "₹",
@@ -164,6 +172,8 @@ export default function PricingPage() {
         setPriceData({
           final_price:      parseFloat((base + gst + delivery).toFixed(2)),
           base_price:       base,
+          platform_fee:     0,
+          packaging_fee:    0,
           gst_amount:       gst,
           delivery_charges: delivery,
         });
@@ -178,6 +188,8 @@ export default function PricingPage() {
   const isCalculating  = parsing || loading;
   const finalPrice      = priceData?.final_price      ?? 0;
   const basePrice       = priceData?.base_price       ?? 0;
+  const platformFee     = priceData?.platform_fee     ?? 0;
+  const packagingFee    = priceData?.packaging_fee    ?? 0;
   const gstAmount       = priceData?.gst_amount       ?? 0;
   const deliveryCharges = priceData?.delivery_charges ?? 0;
   const pricePerUnit    = (quantity > 1)
@@ -239,6 +251,8 @@ export default function PricingPage() {
               pricePerUnit    = {pricePerUnit}
               totalPrice      = {finalPrice}
               basePrice       = {basePrice}
+              platformFee     = {platformFee}
+              packagingFee    = {packagingFee}
               gstAmount       = {gstAmount}
               gstRate         = {GST_RATE}
               deliveryCharges = {deliveryCharges}
