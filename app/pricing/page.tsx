@@ -45,6 +45,9 @@ export default function PricingPage() {
     material?.gradeId ||
     material?.gradeLabel?.toLowerCase().replace(/ /g, "-") ||
     "pla";
+  const isFdmProcess =
+    !material || material.familyId === "plastic" || material.familyId === "engineering";
+  const quoteInfillPercent = isFdmProcess ? (infillPercent || 20) : 100;
 
   // ── Step 1: File se real volume nikalo ──
   useEffect(() => {
@@ -82,14 +85,14 @@ export default function PricingPage() {
         materialSlug,
         useCase: useCase || undefined,
       });
-      const effectiveVol = calcEffectiveVolume(modelVol, supportVol, infillPercent || 20);
+      const effectiveVol = calcEffectiveVolume(modelVol, supportVol, quoteInfillPercent);
 
       setVolumes({ model: modelVol, support: supportVol, effective: effectiveVol });
       setParsing(false);
     }
 
     parseVolume();
-  }, [file, infillPercent, materialSlug, router, setModelData, storedVolumeCc, useCase]);
+  }, [file, materialSlug, quoteInfillPercent, router, setModelData, storedVolumeCc, useCase]);
 
   // ── Step 2: Volume ready hone ke baad price fetch karo ──
   useEffect(() => {
@@ -108,7 +111,7 @@ export default function PricingPage() {
           model_volume_cc:             currentVolumes.model,
           support_volume_cc:           currentVolumes.support,
           final_effective_material_cc:  currentVolumes.effective,
-          infill_percent:              infillPercent || 20,
+          infill_percent:              quoteInfillPercent,
           layer_height:                0.2,
           estimated_print_time_hours:
             parseFloat((currentVolumes.model * 0.12).toFixed(1)), // rough estimate
@@ -170,7 +173,7 @@ export default function PricingPage() {
     }
 
     fetchPrice();
-  }, [volumes, materialSlug, quantity, infillPercent, setPrice]);
+  }, [volumes, materialSlug, quantity, quoteInfillPercent, setPrice]);
 
   const isCalculating  = parsing || loading;
   const finalPrice      = priceData?.final_price      ?? 0;
@@ -246,7 +249,9 @@ export default function PricingPage() {
 
               valuePoints = {[
                 `Model volume: ${volumes.model.toFixed(2)} cc`,
-                `Infill: ${infillPercent || 20}% density applied`,
+                isFdmProcess
+                  ? `Infill: ${quoteInfillPercent}% density applied`
+                  : "Solid process estimate applied",
                 "Support material estimated from use case",
                 deliveryCharges === 0
                   ? "🎉 Free delivery!"
