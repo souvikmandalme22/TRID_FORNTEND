@@ -8,14 +8,18 @@ import { PricingResult } from "@/components/landing/PricingResult";
 import { Navbar } from "@/components/layout/Navbar";
 import { Container } from "@/components/ui";
 import { useOrderStore } from "@/store";
+import {
+  calculateFileVolume,
+  calcSupportVolume,
+  calcEffectiveVolume,
+} from "@/lib/geometry";
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://trid-bak.onrender.com/api/v1";
 
-const DEFAULT_MODEL_CC   = 35;
-const DEFAULT_SUPPORT_CC = 6.3;
-const GST_RATE           = 0.18;
+const GST_RATE        = 0.18;
+const FALLBACK_VOL_CC = 35; // jab file null ho (refresh ke baad)
 
 export default function PricingPage() {
   const router = useRouter();
@@ -26,31 +30,60 @@ export default function PricingPage() {
   const quantity      = useOrderStore((s) => s.quantity);
   const infillPercent = useOrderStore((s) => s.infillPercent);
   const setPrice      = useOrderStore((s) => s.setPrice);
-  const file          = useOrderStore((s) => s.file);
+  const file          = useOrderStore((s) => s.file); // real File object
 
-  const [priceData, setPriceData] = useState<any>(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState("");
+  const [priceData,   setPriceData]   = useState<any>(null);
+  const [volumes,     setVolumes]     = useState<{
+    model: number; support: number; effective: number;
+  } | null>(null);
+  const [parsing,  setParsing]  = useState(true);  // STL parse ho raha hai
+  const [loading,  setLoading]  = useState(false);  // API call
+  const [error,    setError]    = useState("");
 
-  const modelVolumeCc   = DEFAULT_MODEL_CC;
-  const supportVolumeCc = DEFAULT_SUPPORT_CC;
-  const infillFactor    = (infillPercent || 20) / 100;
-  const effectiveCc     = parseFloat(
-    (modelVolumeCc * (0.15 + 0.85 * infillFactor) + supportVolumeCc).toFixed(2)
-  );
-
+  // ── Step 1: File se real volume nikalo ──
   useEffect(() => {
+    async function parseVolume() {
+      setParsing(true);
+      let modelVol = FALLBACK_VOL_CC;
+
+      if (file) {
+        try {
+          const vol = await calculateFileVolume(file);
+          // vol > 0 means successfully parsed
+          if (vol > 0.1) modelVol = parseFloat(vol.toFixed(2));
+        } catch (e) {
+          console.warn("Volume parse failed, using fallback:", e);
+        }
+      }
+
+      const supportVol   = calcSupportVolume(modelVol);
+      const effectiveVol = calcEffectiveVolume(modelVol, supportVol, infillPercent || 20);
+
+      setVolumes({ model: modelVol, support: supportVol, effective: effectiveVol });
+      setParsing(false);
+    }
+
+    parseVolume();
+  }, [file]);
+
+  // ── Step 2: Volume ready hone ke baad price fetch karo ──
+  useEffect(() => {
+    if (!volumes) return;
+
     async function fetchPrice() {
+      setLoading(true);
       try {
         const payload = {
-          material_slug:               material?.gradeLabel?.toLowerCase().replace(/ /g, "-") || "pla",
+          material_slug:
+            material?.gradeLabel?.toLowerCase().replace(/ /g, "-") || "pla",
           quantity:                    quantity || 1,
           delivery_tier:               "standard",
-          model_volume_cc:             modelVolumeCc,
-          support_volume_cc:           supportVolumeCc,
+          model_volume_cc:             volumes.model,
+          support_volume_cc:           volumes.support,
           infill_percent:              infillPercent || 20,
           layer_height:                0.2,
-          estimated_print_time_hours:  4.5,
+          estimated_print_time_hours:
+            parseFloat((volumes.model * 0.12).toFixed(1)), // rough estimate
           complexity_features: {
             thin_wall: false, internal_channels: false, text_or_logo: false,
             high_support: true, orientation_sensitive: false,
@@ -71,9 +104,8 @@ export default function PricingPage() {
         if (!res.ok) throw new Error(await res.text());
 
         const data = await res.json();
-        console.log("📦 Pricing API response:", JSON.stringify(data, null, 2));
+        console.log("📦 API response:", JSON.stringify(data, null, 2));
 
-        // Reverse-calculate breakdown so math is always correct
         const finalPrice = data.final_price || 0;
         const delivery   = data.delivery_fee ?? data.delivery_charges ?? 0;
         const withGst    = finalPrice - delivery;
@@ -93,8 +125,9 @@ export default function PricingPage() {
 
       } catch (e: any) {
         console.error("Pricing error:", e);
-        setError("Live price unavailable — showing estimate.");
-        const base     = parseFloat((effectiveCc * 8 * (quantity || 1)).toFixed(2));
+        setError("Live price unavailable — estimate dikha raha hai.");
+
+        const base     = parseFloat((volumes.effective * 8 * (quantity || 1)).toFixed(2));
         const gst      = parseFloat((base * GST_RATE).toFixed(2));
         const delivery = base > 999 ? 0 : 79;
         setPriceData({
@@ -109,19 +142,23 @@ export default function PricingPage() {
     }
 
     fetchPrice();
-  }, []);
+  }, [volumes]);
 
+  const isCalculating  = parsing || loading;
   const finalPrice      = priceData?.final_price      ?? 0;
   const basePrice       = priceData?.base_price       ?? 0;
   const gstAmount       = priceData?.gst_amount       ?? 0;
   const deliveryCharges = priceData?.delivery_charges ?? 0;
-  const pricePerUnit    = quantity > 1 ? Math.round(finalPrice / quantity) : finalPrice;
+  const pricePerUnit    = (quantity > 1)
+    ? Math.round(finalPrice / quantity)
+    : finalPrice;
 
   return (
     <>
       <Navbar />
       <main className="min-h-screen flex items-center justify-center pt-20 pb-16">
         <Container>
+
           <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }} className="text-center mb-10"
@@ -130,9 +167,11 @@ export default function PricingPage() {
               Instant Quote
             </span>
             <h1 className="text-4xl md:text-5xl font-bold text-text-primary tracking-tight mb-3">
-              {loading ? "Calculating..." : "Your Price"}
+              {isCalculating ? "Calculating..." : "Your Price"}
             </h1>
-            <p className="text-text-secondary text-lg">Includes material, infill, support &amp; GST</p>
+            <p className="text-text-secondary text-lg">
+              Includes material, infill, support &amp; GST
+            </p>
             {error && (
               <p className="text-yellow-400 text-sm mt-3 bg-yellow-400/10 border border-yellow-400/20 rounded-xl px-4 py-2 inline-block">
                 ⚠ {error}
@@ -140,19 +179,24 @@ export default function PricingPage() {
             )}
           </motion.div>
 
-          {loading && (
+          {/* Loading state */}
+          {isCalculating && (
             <div className="flex flex-col items-center gap-4 py-20">
-              <motion.div animate={{ rotate: 360 }}
+              <motion.div
+                animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                className="w-10 h-10 border-2 border-accent/20 border-t-accent rounded-full" />
+                className="w-10 h-10 border-2 border-accent/20 border-t-accent rounded-full"
+              />
               <p className="text-text-muted text-sm">
-                Calculating price for{" "}
-                <span className="text-text-primary font-medium">{material?.gradeLabel || "your material"}</span>...
+                {parsing
+                  ? "3D model ka volume calculate ho raha hai..."
+                  : `${material?.gradeLabel || "material"} ka price fetch ho raha hai...`}
               </p>
             </div>
           )}
 
-          {!loading && priceData && (
+          {/* Result */}
+          {!isCalculating && priceData && volumes && (
             <PricingResult
               modelName     = {model?.fileName || "your-model.stl"}
               material      = {material?.familyLabel || "Plastic"}
@@ -160,28 +204,39 @@ export default function PricingPage() {
               useCase       = {useCase || "General Use"}
               quantity      = {quantity || 1}
               currency      = "₹"
+
               pricePerUnit    = {pricePerUnit}
               totalPrice      = {finalPrice}
               basePrice       = {basePrice}
               gstAmount       = {gstAmount}
               gstRate         = {GST_RATE}
               deliveryCharges = {deliveryCharges}
-              modelVolumeCc     = {modelVolumeCc}
-              supportVolumeCc   = {supportVolumeCc}
-              effectiveVolumeCc = {effectiveCc}
+
+              modelVolumeCc     = {volumes.model}
+              supportVolumeCc   = {volumes.support}
+              effectiveVolumeCc = {volumes.effective}
+
               valuePoints = {[
+                `Model volume: ${volumes.model.toFixed(2)} cc`,
                 `Infill: ${infillPercent || 20}% density applied`,
-                "Support volume calculated",
-                "18% GST included",
-                deliveryCharges === 0 ? "🎉 Free delivery!" : `Delivery: ₹${deliveryCharges}`,
+                "Support volume calculated (18%)",
+                deliveryCharges === 0
+                  ? "🎉 Free delivery!"
+                  : `Delivery: ₹${deliveryCharges}`,
               ]}
-              warnings         = {[]}
+              warnings = {
+                volumes.model === FALLBACK_VOL_CC && !file
+                  ? ["File session mein nahi hai — volume estimate use kiya. Re-upload karo for exact price."]
+                  : []
+              }
+
               onChangeMaterial = {() => router.push("/material")}
               onChangeQuantity = {() => router.push("/environment")}
               onContinue       = {() => router.push("/checkout")}
               file             = {file}
             />
           )}
+
         </Container>
       </main>
     </>
