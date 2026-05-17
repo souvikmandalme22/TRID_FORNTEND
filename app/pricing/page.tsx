@@ -50,9 +50,9 @@ export default function PricingPage() {
             quantity: quantity || 1,
             delivery_type: "standard",
 
-            model_volume_cc: model?.volumeCc || 35,
+            (model?.volumeCc && model.volumeCc > 0 ? model.volumeCc : 35)
             support_volume_cc: 0,
-            final_effective_material_cc: model?.volumeCc || 35,
+            final_effective_material_cc: (model?.volumeCc && model.volumeCc > 0 ? model.volumeCc : 35),
 
             infill_percent: 20,
 
