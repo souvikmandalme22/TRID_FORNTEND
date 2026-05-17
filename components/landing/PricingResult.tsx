@@ -7,29 +7,30 @@ import { ModelViewer } from "@/components/viewer/ModelViewer";
 import { cn } from "@/lib/utils";
 
 interface PricingResultProps {
-  modelName       : string;
-  material        : string;
-  materialGrade   : string;
-  useCase         : string;
-  quantity        : number;
-  pricePerUnit    : number;
-  totalPrice      : number;
-  currency?       : string;
-  basePrice       : number;
-  platformFee?    : number;
-  packagingFee?   : number;
-  gstAmount       : number;
-  gstRate         : number;
-  deliveryCharges : number;
-  modelVolumeCc      : number;
-  supportVolumeCc    : number;
-  effectiveVolumeCc  : number;
-  valuePoints?    : string[];
-  warnings?       : string[];
-  onChangeMaterial?  : () => void;
-  onChangeQuantity?  : () => void;
-  onContinue?        : () => void;
-  file?              : File | null;
+  modelName             : string;
+  material              : string;
+  materialGrade         : string;
+  useCase               : string;
+  quantity              : number;
+  pricePerUnit          : number;
+  totalPrice            : number;
+  currency?             : string;
+  basePrice             : number;
+  platformFee?          : number;
+  packagingFee?         : number;
+  gstAmount             : number;
+  gstRate               : number;
+  deliveryCharges       : number;
+  modelVolumeCc         : number;
+  supportVolumeCc       : number;
+  effectiveVolumeCc     : number;
+  estimatedPrintTimeHrs?: number;
+  valuePoints?          : string[];
+  warnings?             : string[];
+  onChangeMaterial?     : () => void;
+  onChangeQuantity?     : () => void;
+  onContinue?           : () => void;
+  file?                 : File | null;
 }
 
 function fmt(n: number) {
@@ -62,7 +63,6 @@ function Row({
   );
 }
 
-// ── Valid coupon codes ──
 const COUPONS: Record<string, number> = {
   TRID10  : 0.10,
   TRID20  : 0.20,
@@ -146,6 +146,7 @@ export function PricingResult({
   pricePerUnit, totalPrice, currency = "₹",
   basePrice, platformFee = 0, packagingFee = 0, gstAmount, gstRate, deliveryCharges,
   modelVolumeCc, supportVolumeCc, effectiveVolumeCc,
+  estimatedPrintTimeHrs,
   valuePoints = [], warnings = [],
   onChangeMaterial, onChangeQuantity, onContinue,
   file,
@@ -158,6 +159,12 @@ export function PricingResult({
 
   const finalAfterDiscount = parseFloat(Math.max(0, totalPrice - discount).toFixed(2));
   const modelMaterialCc    = parseFloat(Math.max(0, effectiveVolumeCc - supportVolumeCc).toFixed(2));
+
+  const printTimeLabel = estimatedPrintTimeHrs !== undefined
+    ? estimatedPrintTimeHrs < 1
+      ? `~${Math.round(estimatedPrintTimeHrs * 60)} mins`
+      : `~${estimatedPrintTimeHrs} hrs`
+    : null;
 
   return (
     <motion.div
@@ -198,9 +205,9 @@ export function PricingResult({
           </div>
 
           {/* Detail rows */}
-          <Row label="Material"  value={`${material} — ${materialGrade}`} />
-          <Row label="Use Case"  value={useCase} />
-          <Row label="Quantity"  value={`${quantity} unit${quantity > 1 ? "s" : ""}`} />
+          <Row label="Material" value={`${material} — ${materialGrade}`} />
+          <Row label="Use Case" value={useCase} />
+          <Row label="Quantity" value={`${quantity} unit${quantity > 1 ? "s" : ""}`} />
           <Row
             label={
               <span className="flex items-center gap-1.5">
@@ -220,6 +227,27 @@ export function PricingResult({
             sub={`Part ${modelMaterialCc.toFixed(2)} cc + Support ${supportVolumeCc.toFixed(2)} cc`}
           />
 
+          {printTimeLabel && (
+            <Row
+              label={
+                <span className="flex items-center gap-1.5">
+                  Est. Print Time
+                  <span className="text-xs text-text-muted/50 font-normal">(Approx)</span>
+                  <span className="group relative cursor-default">
+                    <svg className="w-3.5 h-3.5 text-text-muted/40 hover:text-text-muted transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20A10 10 0 0112 2z" />
+                    </svg>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-surface-2 border border-border text-xs text-text-muted rounded-xl px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none leading-relaxed shadow-lg">
+                      Estimated machine print time only. Does not include post-processing, curing, or dispatch time. Actual time may vary by vendor and printer.
+                    </span>
+                  </span>
+                </span>
+              }
+              value={printTimeLabel}
+              sub="Machine time only, excludes post-processing"
+            />
+          )}
+
           <div className="my-1" />
 
           <Row label="Print Cost" value={`${currency}${fmt(basePrice)}`} />
@@ -237,7 +265,6 @@ export function PricingResult({
 
           <Row label="Total" value={`${currency}${fmt(finalAfterDiscount)}`} accent big />
 
-          {/* Coupon */}
           <CouponBox
             baseAmount={totalPrice}
             onDiscount={(amt, code) => { setDiscount(amt); setCouponCode(code); }}
