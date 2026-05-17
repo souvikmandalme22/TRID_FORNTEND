@@ -2,16 +2,27 @@ import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 
+/* ─────────────────────────────────────────────
+   CONSTANTS (GEOMETRY ONLY - NO PRICING)
+──────────────────────────────────────────── */
+
 const MIN_VOLUME_CC = 0.1;
 const BOUNDING_BOX_SOLID_RATIO = 0.35;
-const DEFAULT_SHELL_MATERIAL_FACTOR = 0.28;
+const DEFAULT_SHELL_FACTOR = 0.28;
 
-const SUPPORT_RATIO_BY_USE_CASE: Record<string, number> = {
-  showpiece: 0.003,
-  fit: 0.01,
-  daily: 0.012,
-  heavy: 0.018,
-};
+/* ─────────────────────────────────────────────
+   TYPES (CLEAN CONTRACT)
+──────────────────────────────────────────── */
+
+export interface GeometryResult {
+  modelVolumeCc: number;
+  supportVolumeCc: number;
+  effectiveMaterialCc: number;
+}
+
+/* ─────────────────────────────────────────────
+   CORE VOLUME CALCULATION
+──────────────────────────────────────────── */
 
 function calcSignedVolumeCc(geometry: THREE.BufferGeometry): number {
   const position = geometry.attributes.position;
@@ -28,7 +39,6 @@ function calcSignedVolumeCc(geometry: THREE.BufferGeometry): number {
     v2.fromBufferAttribute(position, i + 1);
     v3.fromBufferAttribute(position, i + 2);
 
-    // v1 · (v2 × v3) / 6
     volume += v1.dot(v2.clone().cross(v3)) / 6;
   }
 
@@ -49,16 +59,15 @@ function estimateBoundingBoxVolumeCc(geometry: THREE.BufferGeometry): number {
   return boxVolumeCc * BOUNDING_BOX_SOLID_RATIO;
 }
 
-/**
- * STL/OBJ mesh volume in cc. Closed meshes use signed tetrahedrons; open or
- * inconsistent meshes get a bounding-box estimate instead of the fixed app
- * fallback, so different uploads still produce different quotes.
- */
 function calcVolumeFromGeometry(geometry: THREE.BufferGeometry): number {
-  const signedVolume = calcSignedVolumeCc(geometry);
-  if (signedVolume > MIN_VOLUME_CC) return signedVolume;
+  const signed = calcSignedVolumeCc(geometry);
+  if (signed > MIN_VOLUME_CC) return signed;
   return estimateBoundingBoxVolumeCc(geometry);
 }
+
+/* ─────────────────────────────────────────────
+   FILE PARSERS
+──────────────────────────────────────────── */
 
 export async function calculateFileVolume(file: File): Promise<number> {
   const ext = file.name.split(".").pop()?.toLowerCase();
@@ -66,16 +75,18 @@ export async function calculateFileVolume(file: File): Promise<number> {
   if (ext === "stl") {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
+
       reader.onload = (e) => {
         try {
-          const buffer   = e.target?.result as ArrayBuffer;
-          const loader   = new STLLoader();
+          const buffer = e.target?.result as ArrayBuffer;
+          const loader = new STLLoader();
           const geometry = loader.parse(buffer);
           resolve(calcVolumeFromGeometry(geometry));
         } catch (err) {
           reject(err);
         }
       };
+
       reader.onerror = reject;
       reader.readAsArrayBuffer(file);
     });
@@ -84,12 +95,14 @@ export async function calculateFileVolume(file: File): Promise<number> {
   if (ext === "obj") {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
+
       reader.onload = (e) => {
         try {
-          const text   = e.target?.result as string;
+          const text = e.target?.result as string;
           const loader = new OBJLoader();
-          const obj    = loader.parse(text);
-          let   total  = 0;
+          const obj = loader.parse(text);
+
+          let total = 0;
 
           obj.traverse((child: any) => {
             if (child.isMesh && child.geometry) {
@@ -102,39 +115,90 @@ export async function calculateFileVolume(file: File): Promise<number> {
           reject(err);
         }
       };
+
       reader.onerror = reject;
       reader.readAsText(file);
     });
   }
 
-  // STEP files — browser mein parse nahi ho sakta, fallback use karo
+  // STEP not supported in browser
   return 0;
 }
+
+/* ─────────────────────────────────────────────
+   SUPPORT ESTIMATION (PHYSICS ONLY)
+──────────────────────────────────────────── */
 
 export function calcSupportVolume(
   modelVolumeCc: number,
   options: { materialSlug?: string; useCase?: string } = {}
 ): number {
-  const materialSlug = options.materialSlug?.toLowerCase() ?? "";
+  const slug = options.materialSlug?.toLowerCase() ?? "";
 
-  if (materialSlug.includes("sls") || materialSlug.includes("mjf")) {
+  // SLS / MJF = no supports
+  if (slug.includes("sls") || slug.includes("mjf")) {
     return 0;
   }
 
-  const ratio = materialSlug.includes("resin")
-    ? 0.015
-    : SUPPORT_RATIO_BY_USE_CASE[options.useCase ?? ""] ?? 0.01;
+  const supportRatioMap: Record<string, number> = {
+    showpiece: 0.003,
+    fit: 0.01,
+    daily: 0.012,
+    heavy: 0.018,
+  };
+
+  const ratio = supportRatioMap[options.useCase ?? ""] ?? 0.01;
 
   return parseFloat((modelVolumeCc * ratio).toFixed(2));
 }
 
+/* ─────────────────────────────────────────────
+   EFFECTIVE VOLUME (MATERIAL ONLY)
+──────────────────────────────────────────── */
+
 export function calcEffectiveVolume(
-  modelVolumeCc   : number,
-  supportVolumeCc : number,
-  infillPercent   : number
+  modelVolumeCc: number,
+  supportVolumeCc: number,
+  infillPercent: number
 ): number {
-  const infill        = infillPercent / 100;
-  const shellOverhead = DEFAULT_SHELL_MATERIAL_FACTOR;
-  const effectiveModel = modelVolumeCc * (shellOverhead + (1 - shellOverhead) * infill);
+  const infill = infillPercent / 100;
+
+  const shellFactor = DEFAULT_SHELL_FACTOR;
+
+  const effectiveModel =
+    modelVolumeCc * (shellFactor + (1 - shellFactor) * infill);
+
   return parseFloat((effectiveModel + supportVolumeCc).toFixed(2));
+}
+
+/* ─────────────────────────────────────────────
+   SINGLE CLEAN ENTRY POINT (USE THIS IN FRONTEND)
+──────────────────────────────────────────── */
+
+export async function getGeometryData(
+  file: File,
+  options?: {
+    materialSlug?: string;
+    useCase?: string;
+    infillPercent?: number;
+  }
+): Promise<GeometryResult> {
+  const modelVolume = await calculateFileVolume(file);
+
+  const supportVolume = calcSupportVolume(modelVolume, {
+    materialSlug: options?.materialSlug,
+    useCase: options?.useCase,
+  });
+
+  const effective = calcEffectiveVolume(
+    modelVolume,
+    supportVolume,
+    options?.infillPercent ?? 20
+  );
+
+  return {
+    modelVolumeCc: parseFloat(modelVolume.toFixed(2)),
+    supportVolumeCc: supportVolume,
+    effectiveMaterialCc: effective,
+  };
 }
