@@ -9,6 +9,8 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Container } from "@/components/ui";
 import { useOrderStore } from "@/store";
 
+import { getGeometryData } from "@/lib/geometry";
+
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://trid-bak.onrender.com/api/v1";
@@ -33,26 +35,40 @@ export default function PricingPage() {
       return;
     }
 
-    async function fetchPrice() {
+    async function run() {
       try {
         setLoading(true);
 
-        const materialSlug =
-          material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") || "pla";
+        // ✅ FIX 1: ALWAYS USE REAL GEOMETRY ENGINE
+        const geo = await getGeometryData(file, {
+          materialSlug:
+            material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") ||
+            "pla",
+          useCase: useCase || "showpiece",
+          infillPercent: 20,
+        });
+
+        console.log("GEOMETRY:", geo);
 
         const res = await fetch(`${API}/pricing/quick-calculate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            material_slug: materialSlug,
-            material_key: materialSlug,
+            material_slug:
+              material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") ||
+              "pla",
+
+            material_key:
+              material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") ||
+              "pla",
 
             quantity: quantity || 1,
             delivery_type: "standard",
 
-            (model?.volumeCc && model.volumeCc > 0 ? model.volumeCc : 35)
-            support_volume_cc: 0,
-            final_effective_material_cc: (model?.volumeCc && model.volumeCc > 0 ? model.volumeCc : 35),
+            // ✅ FIX 2: REAL VALUES
+            model_volume_cc: geo.modelVolumeCc,
+            support_volume_cc: geo.supportVolumeCc,
+            final_effective_material_cc: geo.effectiveMaterialCc,
 
             infill_percent: 20,
 
@@ -62,13 +78,10 @@ export default function PricingPage() {
         });
 
         if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText || "Pricing failed");
+          throw new Error(await res.text());
         }
 
         const result = await res.json();
-        console.log("PRICE RESULT:", result);
-
         setData(result);
 
         setPrice({
@@ -79,7 +92,6 @@ export default function PricingPage() {
           currency: "₹",
           calculatedAt: new Date().toISOString(),
         });
-
       } catch (e: any) {
         console.error(e);
         setError("Price calculation failed");
@@ -88,32 +100,24 @@ export default function PricingPage() {
       }
     }
 
-    fetchPrice();
-  }, [file, model, material, useCase, quantity, router, setPrice]);
+    run();
+  }, [file]);
 
   return (
     <>
       <Navbar />
       <main className="min-h-screen flex items-center justify-center pt-20 pb-16">
         <Container>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-10"
-          >
+          <motion.div className="text-center mb-10">
             <h1 className="text-4xl font-bold">
               {loading ? "Calculating..." : "Your Price"}
             </h1>
-
-            {error && (
-              <p className="text-red-400 mt-2">{error}</p>
-            )}
+            {error && <p className="text-red-400 mt-2">{error}</p>}
           </motion.div>
 
           {loading && (
             <div className="text-center py-20 text-gray-400">
-              Fetching backend price...
+              Calculating geometry + pricing...
             </div>
           )}
 
@@ -125,7 +129,6 @@ export default function PricingPage() {
               useCase={useCase || "showpiece"}
               quantity={quantity || 1}
               currency="₹"
-
               pricePerUnit={Math.round(data.final_price / (quantity || 1))}
               totalPrice={data.final_price}
               basePrice={data.base_display_price || 0}
@@ -134,24 +137,20 @@ export default function PricingPage() {
               gstAmount={data.gst_amount || 0}
               gstRate={0.18}
               deliveryCharges={data.delivery_charges || 0}
-
-              modelVolumeCc={model?.volumeCc || 0}
-              supportVolumeCc={0}
-              effectiveVolumeCc={model?.volumeCc || 0}
-
+              modelVolumeCc={data.model_volume_cc}
+              supportVolumeCc={data.support_volume_cc}
+              effectiveVolumeCc={data.effective_volume_cc}
               valuePoints={[
-                "Backend pricing engine active",
-                "No frontend estimation",
-                "Single source of truth (API)",
+                "Real STL geometry parsed",
+                "Support volume included",
+                "Effective material model applied",
               ]}
-              warnings={error ? [error] : []}
-
+              warnings={[]}
               onChangeMaterial={() => router.push("/material")}
               onChangeQuantity={() => router.push("/environment")}
               onContinue={() => router.push("/checkout")}
             />
           )}
-
         </Container>
       </main>
     </>
