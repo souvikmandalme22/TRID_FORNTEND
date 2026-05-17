@@ -6,8 +6,6 @@ import { Button } from "@/components/ui";
 import { ModelViewer } from "@/components/viewer/ModelViewer";
 import { cn } from "@/lib/utils";
 
-/* ─── Types ─── */
-
 interface PricingResultProps {
   modelName       : string;
   material        : string;
@@ -17,111 +15,74 @@ interface PricingResultProps {
   pricePerUnit    : number;
   totalPrice      : number;
   currency?       : string;
-
-  // Breakdown
-  basePrice       : number;   // before GST
+  basePrice       : number;
   gstAmount       : number;
-  gstRate         : number;   // e.g. 0.18
+  gstRate         : number;
   deliveryCharges : number;
-
-  // Volume
   modelVolumeCc      : number;
   supportVolumeCc    : number;
   effectiveVolumeCc  : number;
-
-  // Suggestions / warnings
   valuePoints?    : string[];
   warnings?       : string[];
-
-  // Actions
   onChangeMaterial?  : () => void;
   onChangeQuantity?  : () => void;
   onContinue?        : () => void;
-
-  // 3D preview
-  file?: File | null;
+  file?              : File | null;
 }
-
-/* ─── Helpers ─── */
 
 function fmt(n: number) {
   return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/* ─── Row ─── */
-
 function Row({
-  label,
-  value,
-  sub,
-  accent,
-  big,
-  green,
+  label, value, sub, accent, big, green,
 }: {
-  label   : string;
-  value   : string;
-  sub?    : string;
-  accent? : boolean;
-  big?    : boolean;
-  green?  : boolean;
+  label: string; value: string; sub?: string;
+  accent?: boolean; big?: boolean; green?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
-      <span className={cn("text-sm", big ? "font-semibold text-text-primary" : "text-text-muted")}>
-        {label}
-      </span>
-      <div className="text-right">
-        <span
-          className={cn(
-            "font-semibold",
-            big    ? "text-base text-text-primary" : "text-sm",
-            accent ? "text-accent" : "",
-            green  ? "text-emerald-400" : "text-text-primary"
-          )}
-        >
-          {value}
+    <div className="flex items-start justify-between py-3 border-b border-border last:border-0">
+      <div>
+        <span className={cn("text-sm", big ? "font-semibold text-text-primary" : "text-text-muted")}>
+          {label}
         </span>
-        {sub && <p className="text-xs text-text-muted mt-0.5">{sub}</p>}
+        {sub && <p className="text-xs text-text-muted/60 mt-0.5">{sub}</p>}
       </div>
+      <span className={cn(
+        "font-semibold text-right ml-4",
+        big    ? "text-base text-text-primary" : "text-sm",
+        accent ? "text-accent" : "",
+        green  ? "text-emerald-400" : !accent ? "text-text-primary" : ""
+      )}>
+        {value}
+      </span>
     </div>
   );
 }
 
-/* ─── Coupon Box ─── */
-
-const VALID_COUPONS: Record<string, number> = {
+// ── Valid coupon codes ──
+const COUPONS: Record<string, number> = {
   TRID10  : 0.10,
   TRID20  : 0.20,
   FIRST15 : 0.15,
   LAUNCH5 : 0.05,
 };
 
-function CouponBox({
-  baseAmount,
-  onDiscount,
-}: {
-  baseAmount : number;
-  onDiscount : (amount: number, code: string) => void;
+function CouponBox({ baseAmount, onDiscount }: {
+  baseAmount: number;
+  onDiscount: (amount: number, code: string) => void;
 }) {
   const [code, setCode]       = useState("");
   const [applied, setApplied] = useState(false);
-  const [error, setError]     = useState("");
   const [saving, setSaving]   = useState(0);
+  const [error, setError]     = useState("");
 
   const apply = () => {
     const upper = code.trim().toUpperCase();
     if (!upper) { setError("Coupon code daalo."); return; }
-
-    const rate = VALID_COUPONS[upper];
-    if (!rate) {
-      setError("Invalid coupon code.");
-      setApplied(false);
-      setSaving(0);
-      onDiscount(0, "");
-      return;
-    }
-
-    const disc = Math.round(baseAmount * rate * 100) / 100;
+    const rate = COUPONS[upper];
+    if (!rate) { setError("Invalid coupon code."); onDiscount(0, ""); return; }
+    const disc = parseFloat((baseAmount * rate).toFixed(2));
     setSaving(disc);
     setApplied(true);
     setError("");
@@ -129,47 +90,36 @@ function CouponBox({
   };
 
   const remove = () => {
-    setCode("");
-    setApplied(false);
-    setError("");
-    setSaving(0);
+    setCode(""); setApplied(false); setSaving(0); setError("");
     onDiscount(0, "");
   };
 
   return (
-    <div className="mt-4">
+    <div className="mt-5 pt-4 border-t border-border">
       <p className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-2">
         Coupon Code
       </p>
-
       {!applied ? (
         <div className="flex gap-2">
           <input
-            type="text"
-            value={code}
+            type="text" value={code}
             onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(""); }}
             placeholder="e.g. TRID10"
             className="flex-1 bg-surface-2 border border-border focus:border-accent rounded-xl px-4 py-2.5 text-sm text-text-primary outline-none transition-colors placeholder:text-text-muted font-mono tracking-widest"
           />
-          <button
-            onClick={apply}
-            className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-xl transition-colors"
-          >
+          <button onClick={apply}
+            className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-xl transition-colors whitespace-nowrap">
             Apply
           </button>
         </div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3"
-        >
+        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-3">
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
             <span className="text-sm font-semibold text-emerald-400 font-mono">{code}</span>
-            <span className="text-xs text-emerald-400/70">applied</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold text-emerald-400">−₹{fmt(saving)}</span>
@@ -179,55 +129,32 @@ function CouponBox({
           </div>
         </motion.div>
       )}
-
       <AnimatePresence>
         {error && (
-          <motion.p
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="text-xs text-red-400 mt-1.5"
-          >
-            {error}
-          </motion.p>
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="text-xs text-red-400 mt-1.5">{error}</motion.p>
         )}
       </AnimatePresence>
     </div>
   );
 }
 
-/* ─── MAIN ─── */
-
 export function PricingResult({
-  modelName,
-  material,
-  materialGrade,
-  useCase,
-  quantity,
-  pricePerUnit,
-  totalPrice,
-  currency = "₹",
-  basePrice,
-  gstAmount,
-  gstRate,
-  deliveryCharges,
-  modelVolumeCc,
-  supportVolumeCc,
-  effectiveVolumeCc,
-  valuePoints = [],
-  warnings    = [],
-  onChangeMaterial,
-  onChangeQuantity,
-  onContinue,
+  modelName, material, materialGrade, useCase, quantity,
+  pricePerUnit, totalPrice, currency = "₹",
+  basePrice, gstAmount, gstRate, deliveryCharges,
+  modelVolumeCc, supportVolumeCc, effectiveVolumeCc,
+  valuePoints = [], warnings = [],
+  onChangeMaterial, onChangeQuantity, onContinue,
   file,
 }: PricingResultProps) {
-  const ref   = useRef(null);
+  const ref    = useRef(null);
   const inView = useInView(ref, { once: true });
 
   const [discount, setDiscount]     = useState(0);
   const [couponCode, setCouponCode] = useState("");
 
-  const finalAfterDiscount = Math.max(0, totalPrice - discount);
+  const finalAfterDiscount = parseFloat(Math.max(0, totalPrice - discount).toFixed(2));
   const totalVolume        = modelVolumeCc + supportVolumeCc;
 
   return (
@@ -238,89 +165,66 @@ export function PricingResult({
       transition={{ duration: 0.5 }}
       className="w-full max-w-5xl mx-auto space-y-4"
     >
-      {/* ── Top grid: breakdown card + 3D viewer ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* LEFT — Price breakdown */}
-        <div className="bg-surface border border-border rounded-3xl px-6 py-6 flex flex-col gap-0">
+        {/* ── LEFT: Breakdown ── */}
+        <div className="bg-surface border border-border rounded-3xl px-6 py-6">
 
-          {/* Total price hero */}
+          {/* Hero price */}
           <div className="text-center mb-5 pb-5 border-b border-border">
             <p className="text-xs text-text-muted uppercase tracking-widest mb-2">Total Price</p>
-
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="flex items-start justify-center gap-1.5"
+              className="flex items-start justify-center gap-1"
             >
-              <span className="text-2xl font-bold text-text-secondary mt-1.5">{currency}</span>
+              <span className="text-2xl font-bold text-text-secondary mt-2">{currency}</span>
               <span className="text-6xl font-extrabold text-text-primary tracking-tight leading-none">
                 {fmt(finalAfterDiscount)}
               </span>
             </motion.div>
 
             {discount > 0 && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-xs text-emerald-400 mt-1.5"
-              >
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="text-xs text-emerald-400 mt-1.5">
                 {currency}{fmt(totalPrice)} se {currency}{fmt(discount)} bachaye!
               </motion.p>
             )}
-
             <p className="text-xs text-text-muted mt-1">
               {currency}{fmt(pricePerUnit)} / unit · {quantity} unit{quantity > 1 ? "s" : ""}
             </p>
           </div>
 
           {/* Detail rows */}
-          <div className="flex-1">
-            <Row label="Material"   value={`${material} — ${materialGrade}`} />
-            <Row label="Use Case"   value={useCase} />
-            <Row label="Quantity"   value={`${quantity} unit${quantity > 1 ? "s" : ""}`} />
+          <Row label="Material"  value={`${material} — ${materialGrade}`} />
+          <Row label="Use Case"  value={useCase} />
+          <Row label="Quantity"  value={`${quantity} unit${quantity > 1 ? "s" : ""}`} />
+          <Row
+            label="Total Volume"
+            value={`${totalVolume.toFixed(2)} cc`}
+            sub={`Model ${modelVolumeCc.toFixed(2)} cc + Support ${supportVolumeCc.toFixed(2)} cc`}
+          />
+          <Row
+            label="Effective Volume"
+            value={`${effectiveVolumeCc.toFixed(2)} cc`}
+            sub="After infill calculation"
+          />
 
-            <Row
-              label="Total Volume"
-              value={`${totalVolume.toFixed(2)} cc`}
-              sub={`Model ${modelVolumeCc.toFixed(2)} cc + Support ${supportVolumeCc.toFixed(2)} cc`}
-            />
+          <div className="my-1" />
 
-            <Row
-              label="Effective Volume"
-              value={`${effectiveVolumeCc.toFixed(2)} cc`}
-              sub="After infill calculation"
-            />
+          <Row label="Base Price"                       value={`${currency}${fmt(basePrice)}`} />
+          <Row label={`GST (${Math.round(gstRate * 100)}%)`} value={`${currency}${fmt(gstAmount)}`} />
+          <Row
+            label="Delivery"
+            value={deliveryCharges === 0 ? "Free" : `${currency}${fmt(deliveryCharges)}`}
+            green={deliveryCharges === 0}
+          />
 
-            <div className="h-px bg-border my-1" />
+          {discount > 0 && (
+            <Row label={`Coupon (${couponCode})`} value={`−${currency}${fmt(discount)}`} green />
+          )}
 
-            <Row label="Base Price"   value={`${currency}${fmt(basePrice)}`} />
-            <Row
-              label={`GST (${Math.round(gstRate * 100)}%)`}
-              value={`${currency}${fmt(gstAmount)}`}
-            />
-            <Row
-              label="Delivery"
-              value={deliveryCharges === 0 ? "Free" : `${currency}${fmt(deliveryCharges)}`}
-              green={deliveryCharges === 0}
-            />
-
-            {discount > 0 && (
-              <Row
-                label={`Coupon (${couponCode})`}
-                value={`−${currency}${fmt(discount)}`}
-                green
-              />
-            )}
-
-            <Row
-              label="Total"
-              value={`${currency}${fmt(finalAfterDiscount)}`}
-              accent
-              big
-            />
-          </div>
+          <Row label="Total" value={`${currency}${fmt(finalAfterDiscount)}`} accent big />
 
           {/* Coupon */}
           <CouponBox
@@ -329,27 +233,18 @@ export function PricingResult({
           />
         </div>
 
-        {/* RIGHT — 3D viewer */}
-        <div className="bg-surface border border-border rounded-3xl overflow-hidden" style={{ minHeight: 420 }}>
+        {/* ── RIGHT: 3D Viewer ── */}
+        <div className="bg-surface border border-border rounded-3xl overflow-hidden min-h-[420px] flex flex-col">
           {file ? (
-            <ModelViewer
-              file={file}
-              onConfirm={() => {}}
-              onReupload={() => {}}
-              className="h-full"
-            />
+            <ModelViewer file={file} onConfirm={() => {}} onReupload={() => {}} className="flex-1" />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-text-muted p-8 min-h-[360px]">
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-muted p-8">
               <svg className="w-14 h-14 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
               </svg>
-              <p className="text-sm font-medium opacity-40 text-center">
-                {modelName}
-              </p>
-              <p className="text-xs opacity-25 text-center">
-                3D preview available during active session
-              </p>
+              <p className="text-sm font-medium opacity-40 text-center">{modelName}</p>
+              <p className="text-xs opacity-25 text-center">3D preview available in active session</p>
             </div>
           )}
         </div>
@@ -357,11 +252,7 @@ export function PricingResult({
 
       {/* ── Warnings ── */}
       {warnings.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-amber-500/5 border border-amber-500/25 rounded-2xl px-5 py-4 space-y-2"
-        >
+        <div className="bg-amber-500/5 border border-amber-500/25 rounded-2xl px-5 py-4 space-y-2">
           {warnings.map((w) => (
             <div key={w} className="flex items-start gap-3">
               <svg className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -371,35 +262,27 @@ export function PricingResult({
               <span className="text-sm text-amber-200/80">{w}</span>
             </div>
           ))}
-        </motion.div>
+        </div>
       )}
 
       {/* ── Value points ── */}
       {valuePoints.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-5 py-4 space-y-2"
-        >
-          {valuePoints.map((vp) => (
-            <div key={vp} className="flex items-center gap-3">
-              <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-sm text-emerald-200/80">{vp}</span>
-            </div>
-          ))}
-        </motion.div>
+        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-5 py-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {valuePoints.map((vp) => (
+              <div key={vp} className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-xs text-emerald-200/80">{vp}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* ── Action buttons ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="flex flex-col sm:flex-row gap-3"
-      >
+      {/* ── Actions ── */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <Button variant="secondary" size="md" onClick={onChangeMaterial} className="flex-1">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -407,22 +290,19 @@ export function PricingResult({
           </svg>
           Change Material
         </Button>
-
         <Button variant="secondary" size="md" onClick={onChangeQuantity} className="flex-1">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
           </svg>
           Change Quantity
         </Button>
-
         <Button variant="primary" size="md" onClick={onContinue} className="flex-[2] shadow-accent-glow">
           Continue to Order
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </Button>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
