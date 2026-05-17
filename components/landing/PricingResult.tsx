@@ -39,7 +39,7 @@ function fmt(n: number) {
 function Row({
   label, value, sub, accent, big, green,
 }: {
-  label: string; value: string; sub?: string;
+  label: React.ReactNode; value: string; sub?: string;
   accent?: boolean; big?: boolean; green?: boolean;
 }) {
   return (
@@ -202,19 +202,27 @@ export function PricingResult({
           <Row label="Use Case"  value={useCase} />
           <Row label="Quantity"  value={`${quantity} unit${quantity > 1 ? "s" : ""}`} />
           <Row
-            label="Solid Model Volume"
-            value={`${modelVolumeCc.toFixed(2)} cc`}
-            sub="Raw mesh volume before infill"
-          />
-          <Row
-            label="Estimated Material"
+            label={
+              <span className="flex items-center gap-1.5">
+                Total Material Volume
+                <span className="text-xs text-text-muted/50 font-normal">(Approx)</span>
+                <span className="group relative cursor-default">
+                  <svg className="w-3.5 h-3.5 text-text-muted/40 hover:text-text-muted transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20A10 10 0 0112 2z" />
+                  </svg>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-surface-2 border border-border text-xs text-text-muted rounded-xl px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none leading-relaxed shadow-lg">
+                    Actual material usage may vary based on slicer settings, wall thickness, infill pattern, and printer calibration. Final volume is calculated at the time of slicing.
+                  </span>
+                </span>
+              </span>
+            }
             value={`${effectiveVolumeCc.toFixed(2)} cc`}
-            sub={`Model ${modelMaterialCc.toFixed(2)} cc + Support ${supportVolumeCc.toFixed(2)} cc`}
+            sub={`Part ${modelMaterialCc.toFixed(2)} cc + Support ${supportVolumeCc.toFixed(2)} cc`}
           />
 
           <div className="my-1" />
 
-          <Row label="Print Cost"                       value={`${currency}${fmt(basePrice)}`} />
+          <Row label="Print Cost" value={`${currency}${fmt(basePrice)}`} />
           {platformFee > 0 && (
             <Row label="Service Fee" value={`${currency}${fmt(platformFee)}`} />
           )}
@@ -222,7 +230,6 @@ export function PricingResult({
             <Row label="Packaging" value={`${currency}${fmt(packagingFee)}`} />
           )}
           <Row label={`GST (${Math.round(gstRate * 100)}%)`} value={`${currency}${fmt(gstAmount)}`} />
-
 
           {discount > 0 && (
             <Row label={`Coupon (${couponCode})`} value={`−${currency}${fmt(discount)}`} green />
