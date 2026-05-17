@@ -4,6 +4,14 @@ import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 
 const MIN_VOLUME_CC = 0.1;
 const BOUNDING_BOX_SOLID_RATIO = 0.35;
+const DEFAULT_SHELL_MATERIAL_FACTOR = 0.28;
+
+const SUPPORT_RATIO_BY_USE_CASE: Record<string, number> = {
+  showpiece: 0.003,
+  fit: 0.01,
+  daily: 0.012,
+  heavy: 0.018,
+};
 
 function calcSignedVolumeCc(geometry: THREE.BufferGeometry): number {
   const position = geometry.attributes.position;
@@ -103,8 +111,21 @@ export async function calculateFileVolume(file: File): Promise<number> {
   return 0;
 }
 
-export function calcSupportVolume(modelVolumeCc: number): number {
-  return parseFloat((modelVolumeCc * 0.18).toFixed(2));
+export function calcSupportVolume(
+  modelVolumeCc: number,
+  options: { materialSlug?: string; useCase?: string } = {}
+): number {
+  const materialSlug = options.materialSlug?.toLowerCase() ?? "";
+
+  if (materialSlug.includes("sls") || materialSlug.includes("mjf")) {
+    return 0;
+  }
+
+  const ratio = materialSlug.includes("resin")
+    ? 0.015
+    : SUPPORT_RATIO_BY_USE_CASE[options.useCase ?? ""] ?? 0.01;
+
+  return parseFloat((modelVolumeCc * ratio).toFixed(2));
 }
 
 export function calcEffectiveVolume(
@@ -113,7 +134,7 @@ export function calcEffectiveVolume(
   infillPercent   : number
 ): number {
   const infill        = infillPercent / 100;
-  const shellOverhead = 0.15;
+  const shellOverhead = DEFAULT_SHELL_MATERIAL_FACTOR;
   const effectiveModel = modelVolumeCc * (shellOverhead + (1 - shellOverhead) * infill);
   return parseFloat((effectiveModel + supportVolumeCc).toFixed(2));
 }

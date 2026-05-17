@@ -155,7 +155,7 @@ export function PricingResult({
   const [couponCode, setCouponCode] = useState("");
 
   const finalAfterDiscount = parseFloat(Math.max(0, totalPrice - discount).toFixed(2));
-  const totalVolume        = modelVolumeCc + supportVolumeCc;
+  const modelMaterialCc    = parseFloat(Math.max(0, effectiveVolumeCc - supportVolumeCc).toFixed(2));
 
   return (
     <motion.div
@@ -200,14 +200,14 @@ export function PricingResult({
           <Row label="Use Case"  value={useCase} />
           <Row label="Quantity"  value={`${quantity} unit${quantity > 1 ? "s" : ""}`} />
           <Row
-            label="Total Volume"
-            value={`${totalVolume.toFixed(2)} cc`}
-            sub={`Model ${modelVolumeCc.toFixed(2)} cc + Support ${supportVolumeCc.toFixed(2)} cc`}
+            label="Solid Model Volume"
+            value={`${modelVolumeCc.toFixed(2)} cc`}
+            sub="Raw mesh volume before infill"
           />
           <Row
-            label="Effective Volume"
+            label="Estimated Material"
             value={`${effectiveVolumeCc.toFixed(2)} cc`}
-            sub="After infill calculation"
+            sub={`Model ${modelMaterialCc.toFixed(2)} cc + Support ${supportVolumeCc.toFixed(2)} cc`}
           />
 
           <div className="my-1" />

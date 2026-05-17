@@ -41,6 +41,10 @@ export default function PricingPage() {
   const [parsing,  setParsing]  = useState(true);  // STL parse ho raha hai
   const [loading,  setLoading]  = useState(false);  // API call
   const [error,    setError]    = useState("");
+  const materialSlug =
+    material?.gradeId ||
+    material?.gradeLabel?.toLowerCase().replace(/ /g, "-") ||
+    "pla";
 
   // ── Step 1: File se real volume nikalo ──
   useEffect(() => {
@@ -74,7 +78,10 @@ export default function PricingPage() {
         }
       }
 
-      const supportVol   = calcSupportVolume(modelVol);
+      const supportVol   = calcSupportVolume(modelVol, {
+        materialSlug,
+        useCase: useCase || undefined,
+      });
       const effectiveVol = calcEffectiveVolume(modelVol, supportVol, infillPercent || 20);
 
       setVolumes({ model: modelVol, support: supportVol, effective: effectiveVol });
@@ -82,7 +89,7 @@ export default function PricingPage() {
     }
 
     parseVolume();
-  }, [file, infillPercent, router, setModelData, storedVolumeCc]);
+  }, [file, infillPercent, materialSlug, router, setModelData, storedVolumeCc, useCase]);
 
   // ── Step 2: Volume ready hone ke baad price fetch karo ──
   useEffect(() => {
@@ -92,9 +99,6 @@ export default function PricingPage() {
     async function fetchPrice() {
       setLoading(true);
       try {
-        const materialSlug =
-          material?.gradeLabel?.toLowerCase().replace(/ /g, "-") || "pla";
-
         const payload = {
           material_slug:                 materialSlug,
           material_key:                  materialSlug,
@@ -166,7 +170,7 @@ export default function PricingPage() {
     }
 
     fetchPrice();
-  }, [volumes, material?.gradeLabel, quantity, infillPercent, setPrice]);
+  }, [volumes, materialSlug, quantity, infillPercent, setPrice]);
 
   const isCalculating  = parsing || loading;
   const finalPrice      = priceData?.final_price      ?? 0;
@@ -243,16 +247,12 @@ export default function PricingPage() {
               valuePoints = {[
                 `Model volume: ${volumes.model.toFixed(2)} cc`,
                 `Infill: ${infillPercent || 20}% density applied`,
-                "Support volume calculated (18%)",
+                "Support material estimated from use case",
                 deliveryCharges === 0
                   ? "🎉 Free delivery!"
                   : `Delivery: ₹${deliveryCharges}`,
               ]}
-              warnings = {
-                volumes.model === FALLBACK_VOL_CC && !storedVolumeCc
-                  ? ["File session mein nahi hai — volume estimate use kiya. Re-upload karo for exact price."]
-                  : []
-              }
+              warnings = {[]}
 
               onChangeMaterial = {() => router.push("/material")}
               onChangeQuantity = {() => router.push("/environment")}
