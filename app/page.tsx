@@ -1,8 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { PricingTransparency } from "@/components/landing/PricingTransparency";
@@ -16,7 +14,6 @@ export default function Home() {
         <HowItWorks />
         <PricingTransparency />
       </main>
-      <Footer />
     </>
   );
 }
