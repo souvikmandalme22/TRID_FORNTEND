@@ -16,13 +16,12 @@ const API =
 export default function PricingPage() {
   const router = useRouter();
 
-  const model    = useOrderStore((s) => s.model);
+  const model = useOrderStore((s) => s.model);
   const material = useOrderStore((s) => s.material);
-  const useCase  = useOrderStore((s) => s.useCase);
+  const useCase = useOrderStore((s) => s.useCase);
   const quantity = useOrderStore((s) => s.quantity);
-
   const setPrice = useOrderStore((s) => s.setPrice);
-  const file     = useOrderStore((s) => s.file);
+  const file = useOrderStore((s) => s.file);
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -38,21 +37,36 @@ export default function PricingPage() {
       try {
         setLoading(true);
 
-        const res = await fetch(`${API}/pricing/calculate`, {
+        const materialSlug =
+          material?.gradeLabel
+            ?.toLowerCase()
+            .replace(/\s+/g, "-") || "pla";
+
+        const res = await fetch(`${API}/pricing/quick-calculate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model_id: model?.fileName,
-            material_key: material?.gradeLabel || "PLA",
-            complexity: "simple",
-            machine_tier: "desktop",
-            final_effective_material_cc: model?.volumeCc || 35,
+            material_slug: materialSlug,
+            material_key: materialSlug,
+
             quantity: quantity || 1,
-            use_case: useCase || "showpiece",
+            delivery_type: "standard",
+
+            model_volume_cc: model?.volumeCc || 35,
+            support_volume_cc: 0,
+
+            final_effective_material_cc: model?.volumeCc || 35,
+            infill_percent: 20,
+
+            complexity_features: {},
+            orientation_analysis: {},
           }),
         });
 
-        if (!res.ok) throw new Error("Pricing failed");
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || "Pricing failed");
+        }
 
         const result = await res.json();
         console.log("PRICE RESULT:", result);
@@ -61,14 +75,14 @@ export default function PricingPage() {
 
         setPrice({
           pricePerUnit: Math.round(result.final_price / (quantity || 1)),
-          subtotal: result.internal_breakdown?.raw_material_cost || 0,
+          subtotal: result.base_display_price || 0,
           deliveryFee: result.delivery_charges || 0,
           total: result.final_price,
           currency: "₹",
           calculatedAt: new Date().toISOString(),
         });
 
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
         setError("Price calculation failed");
       } finally {
@@ -77,7 +91,7 @@ export default function PricingPage() {
     }
 
     fetchPrice();
-  }, [file]);
+  }, [file, model, material, useCase, quantity]);
 
   return (
     <>
@@ -93,7 +107,10 @@ export default function PricingPage() {
             <h1 className="text-4xl font-bold">
               {loading ? "Calculating..." : "Your Price"}
             </h1>
-            {error && <p className="text-red-400">{error}</p>}
+
+            {error && (
+              <p className="text-red-400 mt-2">{error}</p>
+            )}
           </motion.div>
 
           {loading && (
@@ -113,23 +130,23 @@ export default function PricingPage() {
 
               pricePerUnit={Math.round(data.final_price / (quantity || 1))}
               totalPrice={data.final_price}
-              basePrice={data.internal_breakdown?.raw_material_cost || 0}
-              platformFee={data.internal_breakdown?.platform_fee || 0}
-              packagingFee={0}
-              gstAmount={data.internal_breakdown?.gst_amount || 0}
+              basePrice={data.base_display_price || 0}
+              platformFee={data.platform_fee || 0}
+              packagingFee={data.packaging_fee || 0}
+              gstAmount={data.gst_amount || 0}
               gstRate={0.18}
               deliveryCharges={data.delivery_charges || 0}
 
               modelVolumeCc={model?.volumeCc || 0}
               supportVolumeCc={0}
-              effectiveVolumeCc={model?.volumeCc || 0}
+              effectiveVolumeCc={model?.model_volume_cc || model?.volumeCc || 0}
 
               valuePoints={[
-                "Backend calculated pricing",
+                "Backend pricing engine active",
                 "No frontend estimation",
-                "Single source of truth enabled",
+                "Single source of truth (API)",
               ]}
-              warnings={[]}
+              warnings={error ? [error] : []}
 
               onChangeMaterial={() => router.push("/material")}
               onChangeQuantity={() => router.push("/environment")}
