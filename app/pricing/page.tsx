@@ -30,7 +30,9 @@ export default function PricingPage() {
   const quantity      = useOrderStore((s) => s.quantity);
   const infillPercent = useOrderStore((s) => s.infillPercent);
   const setPrice      = useOrderStore((s) => s.setPrice);
+  const setModelData  = useOrderStore((s) => s.setModelData);
   const file          = useOrderStore((s) => s.file); // real File object
+  const storedVolumeCc = model?.volumeCc ?? null;
 
   const [priceData,   setPriceData]   = useState<any>(null);
   const [volumes,     setVolumes]     = useState<{
@@ -44,16 +46,28 @@ export default function PricingPage() {
   useEffect(() => {
     async function parseVolume() {
       setParsing(true);
-      let modelVol = FALLBACK_VOL_CC;
+      setError("");
+      let modelVol =
+        storedVolumeCc && storedVolumeCc > 0
+          ? storedVolumeCc
+          : FALLBACK_VOL_CC;
 
-      if (file) {
+      if (!storedVolumeCc && file) {
         try {
           const vol = await calculateFileVolume(file);
           // vol > 0 means successfully parsed
-          if (vol > 0.1) modelVol = parseFloat(vol.toFixed(2));
+          if (vol > 0.1) {
+            modelVol = parseFloat(vol.toFixed(2));
+            setModelData({ volumeCc: modelVol });
+          } else {
+            setError("Exact model volume parse nahi hua — estimate use ho raha hai.");
+          }
         } catch (e) {
           console.warn("Volume parse failed, using fallback:", e);
+          setError("Exact model volume parse nahi hua — estimate use ho raha hai.");
         }
+      } else if (!storedVolumeCc && !file) {
+        setError("File session mein nahi hai — volume estimate use ho raha hai.");
       }
 
       const supportVol   = calcSupportVolume(modelVol);
@@ -64,26 +78,32 @@ export default function PricingPage() {
     }
 
     parseVolume();
-  }, [file]);
+  }, [file, infillPercent, setModelData, storedVolumeCc]);
 
   // ── Step 2: Volume ready hone ke baad price fetch karo ──
   useEffect(() => {
     if (!volumes) return;
+    const currentVolumes = volumes;
 
     async function fetchPrice() {
       setLoading(true);
       try {
+        const materialSlug =
+          material?.gradeLabel?.toLowerCase().replace(/ /g, "-") || "pla";
+
         const payload = {
-          material_slug:
-            material?.gradeLabel?.toLowerCase().replace(/ /g, "-") || "pla",
+          material_slug:                 materialSlug,
+          material_key:                  materialSlug,
           quantity:                    quantity || 1,
           delivery_tier:               "standard",
-          model_volume_cc:             volumes.model,
-          support_volume_cc:           volumes.support,
+          delivery_type:               "standard",
+          model_volume_cc:             currentVolumes.model,
+          support_volume_cc:           currentVolumes.support,
+          final_effective_material_cc:  currentVolumes.effective,
           infill_percent:              infillPercent || 20,
           layer_height:                0.2,
           estimated_print_time_hours:
-            parseFloat((volumes.model * 0.12).toFixed(1)), // rough estimate
+            parseFloat((currentVolumes.model * 0.12).toFixed(1)), // rough estimate
           complexity_features: {
             thin_wall: false, internal_channels: false, text_or_logo: false,
             high_support: true, orientation_sensitive: false,
@@ -127,7 +147,7 @@ export default function PricingPage() {
         console.error("Pricing error:", e);
         setError("Live price unavailable — estimate dikha raha hai.");
 
-        const base     = parseFloat((volumes.effective * 8 * (quantity || 1)).toFixed(2));
+        const base     = parseFloat((currentVolumes.effective * 8 * (quantity || 1)).toFixed(2));
         const gst      = parseFloat((base * GST_RATE).toFixed(2));
         const delivery = base > 999 ? 0 : 79;
         setPriceData({
@@ -142,7 +162,7 @@ export default function PricingPage() {
     }
 
     fetchPrice();
-  }, [volumes]);
+  }, [volumes, material?.gradeLabel, quantity, infillPercent, setPrice]);
 
   const isCalculating  = parsing || loading;
   const finalPrice      = priceData?.final_price      ?? 0;
@@ -225,7 +245,7 @@ export default function PricingPage() {
                   : `Delivery: ₹${deliveryCharges}`,
               ]}
               warnings = {
-                volumes.model === FALLBACK_VOL_CC && !file
+                volumes.model === FALLBACK_VOL_CC && !storedVolumeCc
                   ? ["File session mein nahi hai — volume estimate use kiya. Re-upload karo for exact price."]
                   : []
               }

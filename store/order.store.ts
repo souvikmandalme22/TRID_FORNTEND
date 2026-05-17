@@ -7,6 +7,7 @@ export interface ModelData {
   fileSize: number;
   fileType: "stl" | "obj" | "step";
   dimensions: { x: number; y: number; z: number } | null;
+  volumeCc: number | null;
   objectUrl: string | null;
   uploadedAt: string;
 }
@@ -110,6 +111,7 @@ export const useOrderStore = create<OrderState & OrderActions>()(
               fileSize: file.size,
               fileType: getFileType(file.name),
               dimensions: null,
+              volumeCc: null,
               objectUrl: URL.createObjectURL(file),
               uploadedAt: new Date().toISOString(),
             };

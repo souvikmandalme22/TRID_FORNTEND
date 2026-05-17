@@ -2,13 +2,14 @@ import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 
-/**
- * STL file se real volume calculate karta hai (mm³ → cc)
- * Algorithm: Signed tetrahedron volume per triangle
- */
-function calcVolumeFromGeometry(geometry: THREE.BufferGeometry): number {
+const MIN_VOLUME_CC = 0.1;
+const BOUNDING_BOX_SOLID_RATIO = 0.35;
+
+function calcSignedVolumeCc(geometry: THREE.BufferGeometry): number {
   const position = geometry.attributes.position;
   let volume = 0;
+
+  if (!position || position.count < 3) return 0;
 
   const v1 = new THREE.Vector3();
   const v2 = new THREE.Vector3();
@@ -23,8 +24,32 @@ function calcVolumeFromGeometry(geometry: THREE.BufferGeometry): number {
     volume += v1.dot(v2.clone().cross(v3)) / 6;
   }
 
-  // mm³ → cc (cm³)
   return Math.abs(volume) / 1000;
+}
+
+function estimateBoundingBoxVolumeCc(geometry: THREE.BufferGeometry): number {
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  if (!box) return 0;
+
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  const boxVolumeCc = Math.abs(size.x * size.y * size.z) / 1000;
+  if (!Number.isFinite(boxVolumeCc) || boxVolumeCc <= 0) return 0;
+
+  return boxVolumeCc * BOUNDING_BOX_SOLID_RATIO;
+}
+
+/**
+ * STL/OBJ mesh volume in cc. Closed meshes use signed tetrahedrons; open or
+ * inconsistent meshes get a bounding-box estimate instead of the fixed app
+ * fallback, so different uploads still produce different quotes.
+ */
+function calcVolumeFromGeometry(geometry: THREE.BufferGeometry): number {
+  const signedVolume = calcSignedVolumeCc(geometry);
+  if (signedVolume > MIN_VOLUME_CC) return signedVolume;
+  return estimateBoundingBoxVolumeCc(geometry);
 }
 
 export async function calculateFileVolume(file: File): Promise<number> {
