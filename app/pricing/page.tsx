@@ -18,16 +18,17 @@ const API =
 export default function PricingPage() {
   const router = useRouter();
 
-  const model = useOrderStore((s) => s.model);
+  const model    = useOrderStore((s) => s.model);
   const material = useOrderStore((s) => s.material);
-  const useCase = useOrderStore((s) => s.useCase);
+  const useCase  = useOrderStore((s) => s.useCase);
   const quantity = useOrderStore((s) => s.quantity);
   const setPrice = useOrderStore((s) => s.setPrice);
-  const file = useOrderStore((s) => s.file);
+  const file     = useOrderStore((s) => s.file);
 
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [data, setData]         = useState<any>(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState("");
+  const [printTime, setPrintTime] = useState<number | null>(null);
 
   useEffect(() => {
     if (!file) {
@@ -39,11 +40,9 @@ export default function PricingPage() {
       try {
         setLoading(true);
 
-        // ✅ FIX 1: ALWAYS USE REAL GEOMETRY ENGINE
         const geo = await getGeometryData(file as File, {
           materialSlug:
-            material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") ||
-            "pla",
+            material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") || "pla",
           useCase: useCase || "showpiece",
           infillPercent: 20,
         });
@@ -55,34 +54,25 @@ export default function PricingPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             material_slug:
-              material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") ||
-              "pla",
-
+              material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") || "pla",
             material_key:
-              material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") ||
-              "pla",
-
+              material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") || "pla",
             quantity: quantity || 1,
             delivery_type: "standard",
-
-            // ✅ FIX 2: REAL VALUES
             model_volume_cc: geo.modelVolumeCc,
             support_volume_cc: geo.supportVolumeCc,
             final_effective_material_cc: geo.effectiveMaterialCc,
-
             infill_percent: 20,
-
             complexity_features: {},
             orientation_analysis: {},
           }),
         });
 
-        if (!res.ok) {
-          throw new Error(await res.text());
-        }
+        if (!res.ok) throw new Error(await res.text());
 
         const result = await res.json();
         setData(result);
+        setPrintTime(result.estimated_print_time_hrs ?? null);
 
         setPrice({
           pricePerUnit: Math.round(result.final_price / (quantity || 1)),
@@ -140,6 +130,7 @@ export default function PricingPage() {
               modelVolumeCc={data.model_volume_cc}
               supportVolumeCc={data.support_volume_cc}
               effectiveVolumeCc={data.effective_volume_cc}
+              estimatedPrintTimeHrs={printTime ?? undefined}
               valuePoints={[
                 "Real STL geometry parsed",
                 "Support volume included",
@@ -149,6 +140,7 @@ export default function PricingPage() {
               onChangeMaterial={() => router.push("/material")}
               onChangeQuantity={() => router.push("/environment")}
               onContinue={() => router.push("/checkout")}
+              file={file}
             />
           )}
         </Container>
