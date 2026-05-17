@@ -52,6 +52,12 @@ export default function PricingPage() {
           ? storedVolumeCc
           : FALLBACK_VOL_CC;
 
+      if (!storedVolumeCc && !file) {
+        setParsing(false);
+        router.replace("/upload");
+        return;
+      }
+
       if (!storedVolumeCc && file) {
         try {
           const vol = await calculateFileVolume(file);
@@ -66,8 +72,6 @@ export default function PricingPage() {
           console.warn("Volume parse failed, using fallback:", e);
           setError("Exact model volume parse nahi hua — estimate use ho raha hai.");
         }
-      } else if (!storedVolumeCc && !file) {
-        setError("File session mein nahi hai — volume estimate use ho raha hai.");
       }
 
       const supportVol   = calcSupportVolume(modelVol);
@@ -78,7 +82,7 @@ export default function PricingPage() {
     }
 
     parseVolume();
-  }, [file, infillPercent, setModelData, storedVolumeCc]);
+  }, [file, infillPercent, router, setModelData, storedVolumeCc]);
 
   // ── Step 2: Volume ready hone ke baad price fetch karo ──
   useEffect(() => {
