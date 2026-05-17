@@ -38,9 +38,7 @@ export default function PricingPage() {
         setLoading(true);
 
         const materialSlug =
-          material?.gradeLabel
-            ?.toLowerCase()
-            .replace(/\s+/g, "-") || "pla";
+          material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") || "pla";
 
         const res = await fetch(`${API}/pricing/quick-calculate`, {
           method: "POST",
@@ -54,8 +52,8 @@ export default function PricingPage() {
 
             model_volume_cc: model?.volumeCc || 35,
             support_volume_cc: 0,
-
             final_effective_material_cc: model?.volumeCc || 35,
+
             infill_percent: 20,
 
             complexity_features: {},
@@ -91,7 +89,7 @@ export default function PricingPage() {
     }
 
     fetchPrice();
-  }, [file, model, material, useCase, quantity]);
+  }, [file, model, material, useCase, quantity, router, setPrice]);
 
   return (
     <>
@@ -139,7 +137,7 @@ export default function PricingPage() {
 
               modelVolumeCc={model?.volumeCc || 0}
               supportVolumeCc={0}
-              effectiveVolumeCc={model?.model_volume_cc || model?.volumeCc || 0}
+              effectiveVolumeCc={model?.volumeCc || 0}
 
               valuePoints={[
                 "Backend pricing engine active",
