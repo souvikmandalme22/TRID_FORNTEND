@@ -40,7 +40,7 @@ export default function PricingPage() {
         setLoading(true);
 
         // ✅ FIX 1: ALWAYS USE REAL GEOMETRY ENGINE
-        const geo = await getGeometryData(file, {
+        const geo = await getGeometryData(file as File, {
           materialSlug:
             material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") ||
             "pla",
