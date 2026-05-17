@@ -222,11 +222,7 @@ export function PricingResult({
             <Row label="Packaging" value={`${currency}${fmt(packagingFee)}`} />
           )}
           <Row label={`GST (${Math.round(gstRate * 100)}%)`} value={`${currency}${fmt(gstAmount)}`} />
-          <Row
-            label="Delivery"
-            value={deliveryCharges === 0 ? "Free" : `${currency}${fmt(deliveryCharges)}`}
-            green={deliveryCharges === 0}
-          />
+
 
           {discount > 0 && (
             <Row label={`Coupon (${couponCode})`} value={`−${currency}${fmt(discount)}`} green />
