@@ -8,193 +8,76 @@ import { PricingResult } from "@/components/landing/PricingResult";
 import { Navbar } from "@/components/layout/Navbar";
 import { Container } from "@/components/ui";
 import { useOrderStore } from "@/store";
-import {
-  calculateFileVolume,
-  calcSupportVolume,
-  calcEffectiveVolume,
-} from "@/lib/geometry";
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://trid-bak.onrender.com/api/v1";
 
-const GST_RATE        = 0.18;
-const FALLBACK_VOL_CC = 35; // jab file null ho (refresh ke baad)
-
 export default function PricingPage() {
   const router = useRouter();
 
-  const model         = useOrderStore((s) => s.model);
-  const material      = useOrderStore((s) => s.material);
-  const useCase       = useOrderStore((s) => s.useCase);
-  const quantity      = useOrderStore((s) => s.quantity);
-  const infillPercent = useOrderStore((s) => s.infillPercent);
-  const setPrice      = useOrderStore((s) => s.setPrice);
-  const setModelData  = useOrderStore((s) => s.setModelData);
-  const file          = useOrderStore((s) => s.file); // real File object
-  const storedVolumeCc = model?.volumeCc ?? null;
+  const model    = useOrderStore((s) => s.model);
+  const material = useOrderStore((s) => s.material);
+  const useCase  = useOrderStore((s) => s.useCase);
+  const quantity = useOrderStore((s) => s.quantity);
 
-  const [priceData,   setPriceData]   = useState<any>(null);
-  const [volumes,     setVolumes]     = useState<{
-    model: number; support: number; effective: number;
-  } | null>(null);
-  const [parsing,  setParsing]  = useState(true);  // STL parse ho raha hai
-  const [loading,  setLoading]  = useState(false);  // API call
-  const [error,    setError]    = useState("");
-  const materialSlug =
-    material?.gradeId ||
-    material?.gradeLabel?.toLowerCase().replace(/ /g, "-") ||
-    "pla";
-  const isFdmProcess =
-    !material || material.familyId === "plastic" || material.familyId === "engineering";
-  const quoteInfillPercent = isFdmProcess ? (infillPercent || 20) : 100;
+  const setPrice = useOrderStore((s) => s.setPrice);
+  const file     = useOrderStore((s) => s.file);
 
-  // ── Step 1: File se real volume nikalo ──
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    async function parseVolume() {
-      setParsing(true);
-      setError("");
-      let modelVol =
-        storedVolumeCc && storedVolumeCc > 0
-          ? storedVolumeCc
-          : FALLBACK_VOL_CC;
-
-      if (!storedVolumeCc && !file) {
-        setParsing(false);
-        router.replace("/upload");
-        return;
-      }
-
-      if (!storedVolumeCc && file) {
-        try {
-          const vol = await calculateFileVolume(file);
-          // vol > 0 means successfully parsed
-          if (vol > 0.1) {
-            modelVol = parseFloat(vol.toFixed(2));
-            setModelData({ volumeCc: modelVol });
-          } else {
-            setError("Exact model volume parse nahi hua — estimate use ho raha hai.");
-          }
-        } catch (e) {
-          console.warn("Volume parse failed, using fallback:", e);
-          setError("Exact model volume parse nahi hua — estimate use ho raha hai.");
-        }
-      }
-
-      const supportVol   = calcSupportVolume(modelVol, {
-        materialSlug,
-        useCase: useCase || undefined,
-      });
-      const effectiveVol = calcEffectiveVolume(modelVol, supportVol, quoteInfillPercent);
-
-      setVolumes({ model: modelVol, support: supportVol, effective: effectiveVol });
-      setParsing(false);
+    if (!file) {
+      router.replace("/upload");
+      return;
     }
 
-    parseVolume();
-  }, [file, materialSlug, quoteInfillPercent, router, setModelData, storedVolumeCc, useCase]);
-
-  // ── Step 2: Volume ready hone ke baad price fetch karo ──
-  useEffect(() => {
-    if (!volumes) return;
-    const currentVolumes = volumes;
-
     async function fetchPrice() {
-      setLoading(true);
       try {
-        const payload = {
-          material_slug:                 materialSlug,
-          material_key:                  materialSlug,
-          quantity:                    quantity || 1,
-          delivery_tier:               "standard",
-          delivery_type:               "standard",
-          model_volume_cc:             currentVolumes.model,
-          support_volume_cc:           currentVolumes.support,
-          final_effective_material_cc:  currentVolumes.effective,
-          infill_percent:              quoteInfillPercent,
-          layer_height:                0.2,
-          estimated_print_time_hours:
-            parseFloat((currentVolumes.model * 0.12).toFixed(1)), // rough estimate
-          complexity_features: {
-            thin_wall: false, internal_channels: false, text_or_logo: false,
-            high_support: true, orientation_sensitive: false,
-            tiny_features: false, tolerance_critical: false,
-          },
-          orientation_analysis: {
-            stability_score: 0.82, failure_risk: 0.15,
-            tall_geometry: false, warp_risk: false,
-          },
-        };
+        setLoading(true);
 
-        const res = await fetch(`${API}/pricing/quick-calculate`, {
-          method:  "POST",
+        const res = await fetch(`${API}/pricing/calculate`, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify(payload),
+          body: JSON.stringify({
+            model_id: model?.fileName,
+            material_key: material?.gradeLabel || "PLA",
+            complexity: "simple",
+            machine_tier: "desktop",
+            final_effective_material_cc: model?.volumeCc || 35,
+            quantity: quantity || 1,
+            use_case: useCase || "showpiece",
+          }),
         });
 
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) throw new Error("Pricing failed");
 
-        const data = await res.json();
-        console.log("📦 API response:", JSON.stringify(data, null, 2));
+        const result = await res.json();
+        console.log("PRICE RESULT:", result);
 
-        const finalPrice = data.final_price || 0;
-        const delivery   = data.delivery_fee ?? data.delivery_charges ?? 0;
-        const base       = data.adjusted_manufacturing_cost ?? data.base_display_price ?? 0;
-        const gst        = data.gst_amount ?? 0;
-        const platform   = data.platform_fee ?? 0;
-        const packaging  = data.packaging_fee ?? 0;
-
-        setPriceData({
-          final_price:      finalPrice,
-          base_price:       base,
-          platform_fee:     platform,
-          packaging_fee:    packaging,
-          gst_amount:       gst,
-          delivery_charges: delivery,
-        });
+        setData(result);
 
         setPrice({
-          pricePerUnit: Math.round(finalPrice / (quantity || 1)),
-          subtotal:     base + platform + packaging,
-          deliveryFee:  delivery,
-          total:        finalPrice,
-          currency:     "₹",
+          pricePerUnit: Math.round(result.final_price / (quantity || 1)),
+          subtotal: result.internal_breakdown?.raw_material_cost || 0,
+          deliveryFee: result.delivery_charges || 0,
+          total: result.final_price,
+          currency: "₹",
           calculatedAt: new Date().toISOString(),
         });
 
-      } catch (e: any) {
-        console.error("Pricing error:", e);
-        setError("Live price unavailable — estimate dikha raha hai.");
-
-        const base     = parseFloat((currentVolumes.effective * 8 * (quantity || 1)).toFixed(2));
-        const gst      = parseFloat((base * GST_RATE).toFixed(2));
-        const delivery = base > 999 ? 0 : 79;
-        setPriceData({
-          final_price:      parseFloat((base + gst + delivery).toFixed(2)),
-          base_price:       base,
-          platform_fee:     0,
-          packaging_fee:    0,
-          gst_amount:       gst,
-          delivery_charges: delivery,
-        });
+      } catch (e) {
+        console.error(e);
+        setError("Price calculation failed");
       } finally {
         setLoading(false);
       }
     }
 
     fetchPrice();
-  }, [volumes, materialSlug, quantity, quoteInfillPercent, setPrice]);
-
-  const isCalculating  = parsing || loading;
-  const finalPrice      = priceData?.final_price      ?? 0;
-  const basePrice       = priceData?.base_price       ?? 0;
-  const platformFee     = priceData?.platform_fee     ?? 0;
-  const packagingFee    = priceData?.packaging_fee    ?? 0;
-  const gstAmount       = priceData?.gst_amount       ?? 0;
-  const deliveryCharges = priceData?.delivery_charges ?? 0;
-  const pricePerUnit    = (quantity > 1)
-    ? Math.round(finalPrice / quantity)
-    : finalPrice;
+  }, [file]);
 
   return (
     <>
@@ -203,80 +86,54 @@ export default function PricingPage() {
         <Container>
 
           <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }} className="text-center mb-10"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-10"
           >
-            <span className="text-accent text-sm font-semibold tracking-widest uppercase mb-4 block">
-              Instant Quote
-            </span>
-            <h1 className="text-4xl md:text-5xl font-bold text-text-primary tracking-tight mb-3">
-              {isCalculating ? "Calculating..." : "Your Price"}
+            <h1 className="text-4xl font-bold">
+              {loading ? "Calculating..." : "Your Price"}
             </h1>
-            <p className="text-text-secondary text-lg">
-              Includes material, infill, support &amp; GST
-            </p>
-            {error && (
-              <p className="text-yellow-400 text-sm mt-3 bg-yellow-400/10 border border-yellow-400/20 rounded-xl px-4 py-2 inline-block">
-                ⚠ {error}
-              </p>
-            )}
+            {error && <p className="text-red-400">{error}</p>}
           </motion.div>
 
-          {/* Loading state */}
-          {isCalculating && (
-            <div className="flex flex-col items-center gap-4 py-20">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                className="w-10 h-10 border-2 border-accent/20 border-t-accent rounded-full"
-              />
-              <p className="text-text-muted text-sm">
-                {parsing
-                  ? "3D model ka volume calculate ho raha hai..."
-                  : `${material?.gradeLabel || "material"} ka price fetch ho raha hai...`}
-              </p>
+          {loading && (
+            <div className="text-center py-20 text-gray-400">
+              Fetching backend price...
             </div>
           )}
 
-          {/* Result */}
-          {!isCalculating && priceData && volumes && (
+          {!loading && data && (
             <PricingResult
-              modelName     = {model?.fileName || "your-model.stl"}
-              material      = {material?.familyLabel || "Plastic"}
-              materialGrade = {material?.gradeLabel   || "PLA"}
-              useCase       = {useCase || "General Use"}
-              quantity      = {quantity || 1}
-              currency      = "₹"
+              modelName={model?.fileName || "model.stl"}
+              material={material?.familyLabel || "Plastic"}
+              materialGrade={material?.gradeLabel || "PLA"}
+              useCase={useCase || "showpiece"}
+              quantity={quantity || 1}
+              currency="₹"
 
-              pricePerUnit    = {pricePerUnit}
-              totalPrice      = {finalPrice}
-              basePrice       = {basePrice}
-              platformFee     = {platformFee}
-              packagingFee    = {packagingFee}
-              gstAmount       = {gstAmount}
-              gstRate         = {GST_RATE}
-              deliveryCharges = {deliveryCharges}
+              pricePerUnit={Math.round(data.final_price / (quantity || 1))}
+              totalPrice={data.final_price}
+              basePrice={data.internal_breakdown?.raw_material_cost || 0}
+              platformFee={data.internal_breakdown?.platform_fee || 0}
+              packagingFee={0}
+              gstAmount={data.internal_breakdown?.gst_amount || 0}
+              gstRate={0.18}
+              deliveryCharges={data.delivery_charges || 0}
 
-              modelVolumeCc     = {volumes.model}
-              supportVolumeCc   = {volumes.support}
-              effectiveVolumeCc = {volumes.effective}
+              modelVolumeCc={model?.volumeCc || 0}
+              supportVolumeCc={0}
+              effectiveVolumeCc={model?.volumeCc || 0}
 
-              valuePoints = {[
-                `Model volume: ${volumes.model.toFixed(2)} cc`,
-                isFdmProcess
-                  ? `Infill: ${quoteInfillPercent}% density applied`
-                  : "Solid process estimate applied",
-                "Support material estimated from use case",
-                deliveryCharges === 0
-                  ? "🎉 Free delivery!"
-                  : `Delivery: ₹${deliveryCharges}`,
+              valuePoints={[
+                "Backend calculated pricing",
+                "No frontend estimation",
+                "Single source of truth enabled",
               ]}
-              warnings = {[]}
+              warnings={[]}
 
-              onChangeMaterial = {() => router.push("/material")}
-              onChangeQuantity = {() => router.push("/environment")}
-              onContinue       = {() => router.push("/checkout")}
-              file             = {file}
+              onChangeMaterial={() => router.push("/material")}
+              onChangeQuantity={() => router.push("/environment")}
+              onContinue={() => router.push("/checkout")}
             />
           )}
 
