@@ -30,39 +30,6 @@ export default function PricingPage() {
   const [error, setError] = useState("");
   const [printTime, setPrintTime] = useState<number | null>(null);
 
-  // 🔥 NEW STATES (AI)
-  const [aiSuggestion, setAiSuggestion] = useState<any>(null);
-  const [smartPrice, setSmartPrice] = useState<number | null>(null);
-
-  const getAISuggestion = async (payload: any) => {
-    try {
-      const res = await fetch(
-        `${API}/pricing/ai-suggest`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!res.ok) return null;
-      return res.json();
-    } catch {
-      return null;
-    }
-  };
-
-  const extractAiPrice = (text: string) => {
-    const match = text?.match(/(\d+)\s*-\s*(\d+)/);
-    if (!match) return null;
-
-    const min = parseInt(match[1]);
-    const max = parseInt(match[2]);
-    const mid = (min + max) / 2;
-
-    return { min, max, mid };
-  };
-
   useEffect(() => {
     if (!file) {
       router.replace("/upload");
@@ -108,38 +75,12 @@ export default function PricingPage() {
         setData(result);
         setPrintTime(result.estimated_print_time_hrs ?? null);
 
-        // =========================
-        // 🔥 AI INTEGRATION
-        // =========================
-        const ai = await getAISuggestion({
-          volume: result.effective_volume_cc,
-          material:
-            material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") || "pla",
-          infill: 20,
-          complexity: result.complexity_level,
-          machine_tier: "desktop",
-        });
-
-        setAiSuggestion(ai);
-
-        const aiParsed = extractAiPrice(ai?.ai_suggestion || "");
-
-        const enginePrice = result.final_price;
-
-        let finalSmart = enginePrice;
-
-        if (aiParsed?.mid) {
-          finalSmart = (enginePrice + aiParsed.mid) / 2;
-        }
-
-        setSmartPrice(finalSmart);
-
         // STORE UPDATE
         setPrice({
-          pricePerUnit: Math.round(finalSmart / (quantity || 1)),
+          pricePerUnit: Math.round(result.final_price / (quantity || 1)),
           subtotal: result.base_display_price || 0,
           deliveryFee: result.delivery_charges || 0,
-          total: finalSmart,
+          total: result.final_price,
           currency: "₹",
           calculatedAt: new Date().toISOString(),
         });
@@ -170,25 +111,12 @@ export default function PricingPage() {
 
           {loading && (
             <div className="text-center py-20 text-gray-400">
-              Calculating geometry + AI pricing...
+              Calculating geometry + pricing...
             </div>
           )}
 
           {!loading && data && (
             <>
-              {/* 🔥 SMART PRICE SHOW */}
-              {smartPrice && (
-                <div className="mb-6 p-4 border rounded-lg bg-green-50 text-center">
-                  <h2 className="text-lg font-semibold">Smart AI Price</h2>
-                  <p className="text-3xl font-bold text-green-700">
-                    ₹{Math.round(smartPrice)}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Balanced Engine + AI Market Suggestion
-                  </p>
-                </div>
-              )}
-
               <PricingResult
                 modelName={model?.fileName || "model.stl"}
                 material={material?.familyLabel || "Plastic"}
@@ -196,8 +124,8 @@ export default function PricingPage() {
                 useCase={useCase || "showpiece"}
                 quantity={quantity || 1}
                 currency="₹"
-                pricePerUnit={Math.round(smartPrice || data.final_price / (quantity || 1))}
-                totalPrice={smartPrice || data.final_price}
+                pricePerUnit={Math.round(data.final_price / (quantity || 1))}
+                totalPrice={data.final_price}
                 basePrice={data.base_display_price || 0}
                 platformFee={data.platform_fee || 0}
                 packagingFee={data.packaging_fee || 0}
@@ -211,7 +139,7 @@ export default function PricingPage() {
                 valuePoints={[
                   "Real STL geometry parsed",
                   "Support volume included",
-                  "AI + Engine hybrid pricing",
+                  "Automatic hollowing for large parts",
                 ]}
                 warnings={[]}
                 onChangeMaterial={() => router.push("/material")}
