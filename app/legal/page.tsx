@@ -7,6 +7,7 @@ export default function LegalPage() {
       <Navbar />
 
       <main className="min-h-screen pt-24 pb-20">
+
         {/* Hero */}
         <section className="max-w-4xl mx-auto px-6 text-center mb-16">
           <p className="text-xs text-accent font-semibold uppercase tracking-widest mb-3">
@@ -18,9 +19,9 @@ export default function LegalPage() {
           </h1>
 
           <p className="text-text-muted text-lg leading-relaxed max-w-2xl mx-auto">
-            We believe in transparency — not just in pricing, but in how
-            we operate. Here's everything you need to know about your
-            rights, our policies, and how TRID works.
+            We believe in transparency — not just in pricing, but in how we
+            operate. Here's everything you need to know about your rights, our
+            policies, and how TRID works.
           </p>
         </section>
 
@@ -76,9 +77,7 @@ export default function LegalPage() {
                 href={doc.href}
                 className="flex items-start gap-5 bg-surface border border-border rounded-2xl px-6 py-5 hover:border-accent/30 transition-colors group"
               >
-                <span className="text-2xl mt-0.5">
-                  {doc.icon}
-                </span>
+                <span className="text-2xl mt-0.5">{doc.icon}</span>
 
                 <div className="flex-1">
                   <h3 className="font-semibold text-text-primary group-hover:text-accent transition-colors mb-1">
@@ -158,9 +157,7 @@ export default function LegalPage() {
                   key={item.title}
                   className="bg-background border border-border rounded-2xl p-6"
                 >
-                  <div className="text-3xl mb-4">
-                    {item.icon}
-                  </div>
+                  <div className="text-3xl mb-4">{item.icon}</div>
 
                   <h3 className="font-semibold text-text-primary mb-2">
                     {item.title}
@@ -187,29 +184,27 @@ export default function LegalPage() {
                 <span className="text-text-primary font-semibold">
                   1. Platform Use.
                 </span>{" "}
-                TRID provides an online platform for obtaining
-                manufacturing quotes and placing orders with verified
-                suppliers. By using the platform, you agree to these
-                terms.
+                TRID provides an online platform for obtaining manufacturing
+                quotes and placing orders with verified suppliers. By using the
+                platform, you agree to these terms.
               </p>
 
               <p>
                 <span className="text-text-primary font-semibold">
                   2. Orders & Payments.
                 </span>{" "}
-                All orders are confirmed only upon successful payment.
-                Prices shown include all applicable fees and GST.
-                Payment is processed securely via Razorpay.
+                All orders are confirmed only upon successful payment. Prices
+                shown include all applicable fees and GST. Payment is processed
+                securely via Razorpay.
               </p>
 
               <p>
                 <span className="text-text-primary font-semibold">
                   3. Intellectual Property.
                 </span>{" "}
-                You retain full ownership of all designs you upload.
-                TRID uses your files solely to generate quotes and
-                fulfill orders. We do not claim any rights over your
-                designs.
+                You retain full ownership of all designs you upload. TRID uses
+                your files solely to generate quotes and fulfill orders. We do
+                not claim any rights over your designs.
               </p>
 
               <p>
@@ -217,27 +212,27 @@ export default function LegalPage() {
                   4. Quality & Liability.
                 </span>{" "}
                 TRID works with verified suppliers to maintain quality
-                standards. In the event of a manufacturing defect
-                attributable to our supplier, TRID will arrange a
-                reprint or refund at no additional cost.
+                standards. In the event of a manufacturing defect attributable
+                to our supplier, TRID will arrange a reprint or refund at no
+                additional cost.
               </p>
 
               <p>
                 <span className="text-text-primary font-semibold">
                   5. Cancellations.
                 </span>{" "}
-                Orders may be cancelled within 2 hours of placement for
-                a full refund. After manufacturing has commenced,
-                cancellations are subject to our refund policy.
+                Orders may be cancelled within 2 hours of placement for a full
+                refund. After manufacturing has commenced, cancellations are
+                subject to our refund policy.
               </p>
 
               <p>
                 <span className="text-text-primary font-semibold">
                   6. Governing Law.
                 </span>{" "}
-                These terms are governed by the laws of India. Disputes
-                shall be subject to the exclusive jurisdiction of courts
-                in Kolkata, West Bengal.
+                These terms are governed by the laws of India. Disputes shall be
+                subject to the exclusive jurisdiction of courts in Kolkata, West
+                Bengal.
               </p>
             </div>
           </div>
@@ -256,35 +251,34 @@ export default function LegalPage() {
                   1. Data We Collect.
                 </span>{" "}
                 We collect information you provide (name, email, phone,
-                company), files you upload (STL, STEP, OBJ), and usage
-                data (pages visited, actions taken).
+                company), files you upload (STL, STEP, OBJ), and usage data
+                (pages visited, actions taken).
               </p>
 
               <p>
                 <span className="text-text-primary font-semibold">
                   2. How We Use It.
                 </span>{" "}
-                Your data is used to provide our services, process
-                orders, improve our platform, and communicate with you.
-                We do not sell your data to third parties.
+                Your data is used to provide our services, process orders,
+                improve our platform, and communicate with you. We do not sell
+                your data to third parties.
               </p>
 
               <p>
                 <span className="text-text-primary font-semibold">
                   3. Data Storage.
                 </span>{" "}
-                All data is stored on secure servers. Design files are
-                encrypted at rest and in transit. We retain order data
-                for 3 years for compliance purposes.
+                All data is stored on secure servers. Design files are encrypted
+                at rest and in transit. We retain order data for 3 years for
+                compliance purposes.
               </p>
 
               <p>
                 <span className="text-text-primary font-semibold">
                   4. Your Rights.
                 </span>{" "}
-                You have the right to access, correct, or delete your
-                personal data at any time. Email hello@trid.com to
-                exercise these rights.
+                You have the right to access, correct, or delete your personal
+                data at any time. Email hello@trid.com to exercise these rights.
               </p>
 
               <p>
@@ -292,8 +286,8 @@ export default function LegalPage() {
                   5. Cookies.
                 </span>{" "}
                 We use essential cookies for platform functionality and
-                analytics cookies to improve our service. You can manage
-                cookie preferences in your browser settings.
+                analytics cookies to improve our service. You can manage cookie
+                preferences in your browser settings.
               </p>
             </div>
           </div>
@@ -322,6 +316,7 @@ export default function LegalPage() {
             </p>
           </div>
         </section>
+
       </main>
     </>
   );
