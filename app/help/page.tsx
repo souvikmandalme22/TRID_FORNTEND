@@ -105,6 +105,7 @@ const faqs = [
 
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
+
   return (
     <div className="border-b border-border last:border-0">
       <button
@@ -112,40 +113,59 @@ function FAQItem({ q, a }: { q: string; a: string }) {
         className="w-full flex items-start justify-between py-4 text-left gap-4"
       >
         <span className="text-sm font-medium text-text-primary">{q}</span>
+
         <svg
-          className={`w-4 h-4 text-text-muted flex-shrink-0 mt-0.5 transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          className={`w-4 h-4 text-text-muted flex-shrink-0 mt-0.5 transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
+
       {open && (
-        <p className="text-sm text-text-muted leading-relaxed pb-5 pr-8">{a}</p>
+        <p className="text-sm text-text-muted leading-relaxed pb-5 pr-8">
+          {a}
+        </p>
       )}
     </div>
   );
 }
 
 export default function HelpPage() {
-  const [activeCategory, setActiveCategory] = useState("Getting Started");
+  const [activeCategory, setActiveCategory] =
+    useState("Getting Started");
 
-  const active = faqs.find((f) => f.category === activeCategory);
+  const active = faqs.find(
+    (f) => f.category === activeCategory
+  );
 
   return (
     <>
       <Navbar />
-      <main className="min-h-screen pt-24 pb-20">
 
+      <main className="min-h-screen pt-24 pb-20">
         {/* Hero */}
         <section className="max-w-4xl mx-auto px-6 text-center mb-16">
           <p className="text-xs text-accent font-semibold uppercase tracking-widest mb-3">
             Help Center
           </p>
+
           <h1 className="text-5xl font-extrabold text-text-primary leading-tight mb-5">
             How Can We Help?
           </h1>
+
           <p className="text-text-muted text-lg leading-relaxed max-w-2xl mx-auto">
-            Find answers to common questions about TRID — from uploading your first file to understanding your quote.
+            Find answers to common questions about TRID — from uploading
+            your first file to understanding your quote.
           </p>
         </section>
 
@@ -175,20 +195,33 @@ export default function HelpPage() {
                 href: "https://wa.me/919062383208",
               },
             ].map((item) => (
-              
+              <a
                 key={item.title}
                 href={item.href}
-                target={item.href.startsWith("http") ? "_blank" : undefined}
+                target={
+                  item.href.startsWith("http")
+                    ? "_blank"
+                    : undefined
+                }
                 rel="noreferrer"
                 className="flex items-center gap-4 bg-surface border border-border rounded-2xl px-5 py-4 hover:border-accent/40 transition-colors"
               >
                 <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center text-xl flex-shrink-0">
                   {item.icon}
                 </div>
+
                 <div>
-                  <p className="text-xs text-text-muted">{item.title}</p>
-                  <p className="text-sm font-semibold text-text-primary">{item.value}</p>
-                  <p className="text-xs text-text-muted/60">{item.sub}</p>
+                  <p className="text-xs text-text-muted">
+                    {item.title}
+                  </p>
+
+                  <p className="text-sm font-semibold text-text-primary">
+                    {item.value}
+                  </p>
+
+                  <p className="text-xs text-text-muted/60">
+                    {item.sub}
+                  </p>
                 </div>
               </a>
             ))}
@@ -200,15 +233,17 @@ export default function HelpPage() {
           <h2 className="text-2xl font-bold text-text-primary mb-8">
             Frequently Asked Questions
           </h2>
-          <div className="flex flex-col md:flex-row gap-6">
 
+          <div className="flex flex-col md:flex-row gap-6">
             {/* Category tabs */}
             <div className="md:w-52 flex-shrink-0">
               <div className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
                 {faqs.map((f) => (
                   <button
                     key={f.category}
-                    onClick={() => setActiveCategory(f.category)}
+                    onClick={() =>
+                      setActiveCategory(f.category)
+                    }
                     className={`flex-shrink-0 text-left text-sm px-4 py-2.5 rounded-xl transition-colors font-medium whitespace-nowrap ${
                       activeCategory === f.category
                         ? "bg-accent text-white"
@@ -224,7 +259,11 @@ export default function HelpPage() {
             {/* FAQ items */}
             <div className="flex-1 bg-surface border border-border rounded-2xl px-6 py-2">
               {active?.items.map((item) => (
-                <FAQItem key={item.q} q={item.q} a={item.a} />
+                <FAQItem
+                  key={item.q}
+                  q={item.q}
+                  a={item.a}
+                />
               ))}
             </div>
           </div>
@@ -236,21 +275,34 @@ export default function HelpPage() {
             <h2 className="text-3xl font-bold text-text-primary mb-3">
               Still need help?
             </h2>
+
             <p className="text-text-muted mb-8 max-w-xl mx-auto">
-              Our team is happy to assist with any question — no matter how technical.
+              Our team is happy to assist with any question — no matter
+              how technical.
             </p>
-            
+
+            <a
               href="mailto:hello@trid.com"
               className="inline-flex items-center gap-2 bg-accent text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-accent-hover transition-colors"
             >
               Email Us
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </a>
           </div>
         </section>
-
       </main>
     </>
   );
