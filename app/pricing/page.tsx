@@ -30,6 +30,36 @@ export default function PricingPage() {
   const [error, setError] = useState("");
   const [printTime, setPrintTime] = useState<number | null>(null);
 
+  // Hidden AI states (used only for comparison, not shown)
+  const [aiSuggestion, setAiSuggestion] = useState<any>(null);
+
+  const getAISuggestion = async (payload: any) => {
+    try {
+      const res = await fetch(`${API}/pricing/ai-suggest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) return null;
+      return res.json();
+    } catch {
+      return null;
+    }
+  };
+
+  const extractAiPrice = (text: string) => {
+    // Expect formats like "12000 - 18000" or similar
+    const match = text?.match(/(\d+[.,]?\d*)\s*-\s*(\d+[.,]?\d*)/);
+    if (!match) return null;
+
+    const min = parseFloat(match[1].replace(/,/g, ""));
+    const max = parseFloat(match[2].replace(/,/g, ""));
+    const mid = (min + max) / 2;
+
+    return { min, max, mid };
+  };
+
   useEffect(() => {
     if (!file) {
       router.replace("/upload");
@@ -75,12 +105,36 @@ export default function PricingPage() {
         setData(result);
         setPrintTime(result.estimated_print_time_hrs ?? null);
 
-        // STORE UPDATE
+        // --- Hidden AI: fetch suggestion but do not display it ---
+        const ai = await getAISuggestion({
+          volume: result.effective_volume_cc,
+          material:
+            material?.gradeLabel?.toLowerCase().replace(/\s+/g, "-") || "pla",
+          infill: 20,
+          complexity: result.complexity_level,
+          machine_tier: "desktop",
+        });
+
+        setAiSuggestion(ai);
+
+        // Parse AI suggestion (if present) and choose the lower of engine vs AI mid
+        const aiParsed = extractAiPrice(ai?.ai_suggestion || "");
+
+        const enginePrice = result.final_price;
+
+        let selectedPrice = enginePrice;
+
+        if (aiParsed?.mid) {
+          // Choose the lower of the engine price and AI mid suggestion
+          selectedPrice = Math.min(enginePrice, Math.round(aiParsed.mid));
+        }
+
+        // STORE UPDATE with selected price (AI hidden)
         setPrice({
-          pricePerUnit: Math.round(result.final_price / (quantity || 1)),
+          pricePerUnit: Math.round(selectedPrice / (quantity || 1)),
           subtotal: result.base_display_price || 0,
           deliveryFee: result.delivery_charges || 0,
-          total: result.final_price,
+          total: selectedPrice,
           currency: "₹",
           calculatedAt: new Date().toISOString(),
         });
@@ -124,8 +178,8 @@ export default function PricingPage() {
                 useCase={useCase || "showpiece"}
                 quantity={quantity || 1}
                 currency="₹"
-                pricePerUnit={Math.round(data.final_price / (quantity || 1))}
-                totalPrice={data.final_price}
+                pricePerUnit={Math.round((aiSuggestion && aiSuggestion.ai_suggestion) ? Math.round(Math.min(data.final_price, (extractAiPrice(aiSuggestion.ai_suggestion)?.mid || data.final_price))) / (quantity || 1) : data.final_price / (quantity || 1))}
+                totalPrice={(aiSuggestion && aiSuggestion.ai_suggestion) ? Math.round(Math.min(data.final_price, (extractAiPrice(aiSuggestion.ai_suggestion)?.mid || data.final_price))) : data.final_price}
                 basePrice={data.base_display_price || 0}
                 platformFee={data.platform_fee || 0}
                 packagingFee={data.packaging_fee || 0}
