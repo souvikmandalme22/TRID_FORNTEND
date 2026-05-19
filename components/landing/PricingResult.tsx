@@ -30,12 +30,8 @@ export default function PricingPage() {
   const [error, setError] = useState("");
   const [printTime, setPrintTime] = useState<number | null>(null);
 
-  // Hidden AI suggestion state
+  // hidden AI states
   const [aiSuggestion, setAiSuggestion] = useState<any>(null);
-
-  // =====================================================
-  // AI SUGGESTION FETCHER
-  // =====================================================
 
   const getAISuggestion = async (payload: any) => {
     try {
@@ -54,10 +50,6 @@ export default function PricingPage() {
       return null;
     }
   };
-
-  // =====================================================
-  // EXTRACT AI RANGE
-  // =====================================================
 
   const extractAiPrice = (text: string) => {
     const match = text?.match(
@@ -83,10 +75,6 @@ export default function PricingPage() {
     };
   };
 
-  // =====================================================
-  // MAIN PRICING FLOW
-  // =====================================================
-
   useEffect(() => {
     if (!file) {
       router.replace("/upload");
@@ -102,10 +90,6 @@ export default function PricingPage() {
             ?.toLowerCase()
             .replace(/\s+/g, "-") || "pla";
 
-        // ================================================
-        // GEOMETRY
-        // ================================================
-
         const geo = await getGeometryData(file as File, {
           materialSlug,
           useCase: useCase || "showpiece",
@@ -114,10 +98,6 @@ export default function PricingPage() {
 
         console.log("GEOMETRY:", geo);
 
-        // ================================================
-        // PRICE API
-        // ================================================
-
         const res = await fetch(
           `${API}/pricing/quick-calculate`,
           {
@@ -125,18 +105,15 @@ export default function PricingPage() {
             headers: {
               "Content-Type": "application/json",
             },
-
             body: JSON.stringify({
               material_slug: materialSlug,
-
               material_key: materialSlug,
 
               quantity: quantity || 1,
 
               delivery_type: "standard",
 
-              model_volume_cc:
-                geo.modelVolumeCc,
+              model_volume_cc: geo.modelVolumeCc,
 
               support_volume_cc:
                 geo.supportVolumeCc,
@@ -167,17 +144,15 @@ export default function PricingPage() {
         setData(result);
 
         setPrintTime(
-          result.estimated_print_time_hrs ??
-            null
+          result.estimated_print_time_hrs ?? null
         );
 
-        // ================================================
+        // =====================================================
         // AI SUGGESTION (HIDDEN)
-        // ================================================
+        // =====================================================
 
         const ai = await getAISuggestion({
-          volume:
-            result.effective_volume_cc,
+          volume: result.effective_volume_cc,
 
           material: materialSlug,
 
@@ -207,22 +182,19 @@ export default function PricingPage() {
           );
         }
 
-        // ================================================
+        // =====================================================
         // STORE PRICE
-        // ================================================
+        // =====================================================
 
         setPrice({
           pricePerUnit: Math.round(
-            selectedPrice /
-              (quantity || 1)
+            selectedPrice / (quantity || 1)
           ),
 
-          subtotal:
-            result.subtotal || 0,
+          subtotal: result.subtotal || 0,
 
-          // DELIVERY WILL BE SELECTED
-          // DURING CHECKOUT
-          deliveryFee: 0,
+          deliveryFee:
+            result.delivery_fee || 0,
 
           total: selectedPrice,
 
@@ -247,7 +219,7 @@ export default function PricingPage() {
   }, [file]);
 
   // =====================================================
-  // FINAL DISPLAY PRICES
+  // PRICE DISPLAY
   // =====================================================
 
   const finalPrice =
@@ -255,7 +227,6 @@ export default function PricingPage() {
       ? Math.round(
           Math.min(
             data?.final_price || 0,
-
             extractAiPrice(
               aiSuggestion.ai_suggestion
             )?.mid ||
@@ -268,10 +239,6 @@ export default function PricingPage() {
   const pricePerUnit = Math.round(
     finalPrice / (quantity || 1)
   );
-
-  // =====================================================
-  // UI
-  // =====================================================
 
   return (
     <>
@@ -302,8 +269,7 @@ export default function PricingPage() {
           {!loading && data && (
             <PricingResult
               modelName={
-                model?.fileName ||
-                "model.stl"
+                model?.fileName || "model.stl"
               }
 
               material={
@@ -324,21 +290,13 @@ export default function PricingPage() {
 
               currency="₹"
 
-              // =========================================
-              // FINAL PRICE
-              // =========================================
+              pricePerUnit={pricePerUnit}
 
-              pricePerUnit={
-                pricePerUnit
-              }
+              totalPrice={finalPrice}
 
-              totalPrice={
-                finalPrice
-              }
-
-              // =========================================
-              // COST BREAKDOWN
-              // =========================================
+              // =================================================
+              // FIXED FIELD MAPPING
+              // =================================================
 
               basePrice={
                 data.market_adjusted_cost ||
@@ -359,12 +317,13 @@ export default function PricingPage() {
 
               gstRate={0.18}
 
-              // DELIVERY NOT INCLUDED YET
-              deliveryCharges={0}
+              deliveryCharges={
+                data.delivery_fee || 0
+              }
 
-              // =========================================
+              // =================================================
               // GEOMETRY
-              // =========================================
+              // =================================================
 
               modelVolumeCc={
                 data.model_volume_cc
@@ -382,9 +341,9 @@ export default function PricingPage() {
                 printTime ?? undefined
               }
 
-              // =========================================
-              // VALUE POINTS
-              // =========================================
+              // =================================================
+              // UX
+              // =================================================
 
               valuePoints={[
                 "Real STL geometry parsed",
