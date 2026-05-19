@@ -15,6 +15,78 @@ const API =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://trid-bak.onrender.com/api/v1";
 
+interface PricingApiResult {
+  material_slug?: string;
+  model_volume_cc?: number;
+  support_volume_cc?: number;
+  effective_volume_cc?: number;
+  base_manufacturing_cost?: number;
+  adjusted_manufacturing_cost?: number;
+  market_adjusted_cost?: number;
+  platform_fee?: number;
+  packaging_fee?: number;
+  subtotal?: number;
+  gst_amount?: number;
+  delivery_fee?: number;
+  delivery_charges?: number;
+  final_price?: number;
+  estimated_print_time_hrs?: number;
+  complexity_level?: string;
+}
+
+interface AiSuggestion {
+  ai_suggestion?: string;
+}
+
+interface AiPriceRange {
+  min: number;
+  max: number;
+  mid: number;
+}
+
+function normalizeMaterialSlug(label?: string) {
+  return label?.toLowerCase().replace(/\s+/g, "-") || "pla";
+}
+
+async function getAISuggestion(payload: {
+  volume: number;
+  material: string;
+  infill: number;
+  complexity?: string;
+  machine_tier: string;
+}): Promise<AiSuggestion | null> {
+  try {
+    const res = await fetch(`${API}/pricing/ai-suggest`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) return null;
+
+    return (await res.json()) as AiSuggestion;
+  } catch {
+    return null;
+  }
+}
+
+function extractAiPrice(text?: string): AiPriceRange | null {
+  const match = text?.match(/(\d+[.,]?\d*)\s*-\s*(\d+[.,]?\d*)/);
+
+  if (!match) return null;
+
+  const min = parseFloat(match[1].replace(/,/g, ""));
+  const max = parseFloat(match[2].replace(/,/g, ""));
+
+  return {
+    min,
+    max,
+    mid: (min + max) / 2,
+  };
+}
+
 export default function PricingPage() {
   const router = useRouter();
 
@@ -25,78 +97,37 @@ export default function PricingPage() {
   const setPrice = useOrderStore((s) => s.setPrice);
   const file = useOrderStore((s) => s.file);
 
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<PricingApiResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [printTime, setPrintTime] = useState<number | null>(null);
-
-  // hidden AI states
-  const [aiSuggestion, setAiSuggestion] = useState<any>(null);
-
-  const getAISuggestion = async (payload: any) => {
-    try {
-      const res = await fetch(`${API}/pricing/ai-suggest`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) return null;
-
-      return res.json();
-    } catch {
-      return null;
-    }
-  };
-
-  const extractAiPrice = (text: string) => {
-    const match = text?.match(
-      /(\d+[.,]?\d*)\s*-\s*(\d+[.,]?\d*)/
-    );
-
-    if (!match) return null;
-
-    const min = parseFloat(
-      match[1].replace(/,/g, "")
-    );
-
-    const max = parseFloat(
-      match[2].replace(/,/g, "")
-    );
-
-    const mid = (min + max) / 2;
-
-    return {
-      min,
-      max,
-      mid,
-    };
-  };
+  const [aiSuggestion, setAiSuggestion] = useState<AiSuggestion | null>(null);
 
   useEffect(() => {
     if (!file) {
+      setLoading(false);
       router.replace("/upload");
       return;
     }
 
+    const currentFile = file;
+    let cancelled = false;
+
     async function run() {
       try {
         setLoading(true);
+        setError("");
+        setData(null);
+        setAiSuggestion(null);
 
-        const materialSlug =
-          material?.gradeLabel
-            ?.toLowerCase()
-            .replace(/\s+/g, "-") || "pla";
+        const materialSlug = normalizeMaterialSlug(material?.gradeLabel);
+        const currentQuantity = quantity || 1;
 
-        const geo = await getGeometryData(file as File, {
+        const geo = await getGeometryData(currentFile, {
           materialSlug,
           useCase: useCase || "showpiece",
           infillPercent: 20,
         });
-
-        console.log("GEOMETRY:", geo);
 
         const res = await fetch(
           `${API}/pricing/quick-calculate`,
@@ -108,23 +139,13 @@ export default function PricingPage() {
             body: JSON.stringify({
               material_slug: materialSlug,
               material_key: materialSlug,
-
-              quantity: quantity || 1,
-
+              quantity: currentQuantity,
               delivery_type: "standard",
-
               model_volume_cc: geo.modelVolumeCc,
-
-              support_volume_cc:
-                geo.supportVolumeCc,
-
-              final_effective_material_cc:
-                geo.effectiveMaterialCc,
-
+              support_volume_cc: geo.supportVolumeCc,
+              final_effective_material_cc: geo.effectiveMaterialCc,
               infill_percent: 20,
-
               complexity_features: {},
-
               orientation_analysis: {},
             }),
           }
@@ -134,13 +155,9 @@ export default function PricingPage() {
           throw new Error(await res.text());
         }
 
-        const result = await res.json();
+        const result = (await res.json()) as PricingApiResult;
 
-        console.log(
-          "PRICING API RESULT:",
-          result
-        );
-
+        if (cancelled) return;
         setData(result);
 
         setPrintTime(
@@ -152,18 +169,14 @@ export default function PricingPage() {
         // =====================================================
 
         const ai = await getAISuggestion({
-          volume: result.effective_volume_cc,
-
+          volume: result.effective_volume_cc || 0,
           material: materialSlug,
-
           infill: 20,
-
-          complexity:
-            result.complexity_level,
-
+          complexity: result.complexity_level,
           machine_tier: "desktop",
         });
 
+        if (cancelled) return;
         setAiSuggestion(ai);
 
         const aiParsed = extractAiPrice(
@@ -188,35 +201,39 @@ export default function PricingPage() {
 
         setPrice({
           pricePerUnit: Math.round(
-            selectedPrice / (quantity || 1)
+            selectedPrice / currentQuantity
           ),
 
           subtotal: result.subtotal || 0,
 
-          deliveryFee:
-            result.delivery_fee || 0,
+          deliveryFee: result.delivery_fee ?? result.delivery_charges ?? 0,
 
           total: selectedPrice,
 
-          currency: "₹",
+          currency: "\u20b9",
 
           calculatedAt:
             new Date().toISOString(),
         });
 
-      } catch (e: any) {
+      } catch (e) {
+        if (cancelled) return;
         console.error(e);
 
         setError(
           "Price calculation failed"
         );
       } finally {
+        if (cancelled) return;
         setLoading(false);
       }
     }
 
     run();
-  }, [file]);
+    return () => {
+      cancelled = true;
+    };
+  }, [file, material?.gradeLabel, quantity, router, setPrice, useCase]);
 
   // =====================================================
   // PRICE DISPLAY
@@ -288,7 +305,7 @@ export default function PricingPage() {
 
               quantity={quantity || 1}
 
-              currency="₹"
+              currency={"\u20b9"}
 
               pricePerUnit={pricePerUnit}
 
@@ -299,7 +316,9 @@ export default function PricingPage() {
               // =================================================
 
               basePrice={
-                data.market_adjusted_cost ||
+                data.adjusted_manufacturing_cost ??
+                data.market_adjusted_cost ??
+                data.base_manufacturing_cost ??
                 0
               }
 
@@ -318,7 +337,9 @@ export default function PricingPage() {
               gstRate={0.18}
 
               deliveryCharges={
-                data.delivery_fee || 0
+                data.delivery_fee ??
+                data.delivery_charges ??
+                0
               }
 
               // =================================================
@@ -326,15 +347,15 @@ export default function PricingPage() {
               // =================================================
 
               modelVolumeCc={
-                data.model_volume_cc
+                data.model_volume_cc ?? 0
               }
 
               supportVolumeCc={
-                data.support_volume_cc
+                data.support_volume_cc ?? 0
               }
 
               effectiveVolumeCc={
-                data.effective_volume_cc
+                data.effective_volume_cc ?? 0
               }
 
               estimatedPrintTimeHrs={

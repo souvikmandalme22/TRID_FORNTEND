@@ -12,7 +12,14 @@ interface ModelSceneProps {
   onDimensions: (dims: { x: number; y: number; z: number }) => void;
 }
 
-function STLModel({ url, onDimensions }: any) {
+type ModelDimensions = { x: number; y: number; z: number };
+
+interface LoadedModelProps {
+  url: string;
+  onDimensions: (dims: ModelDimensions) => void;
+}
+
+function STLModel({ url, onDimensions }: LoadedModelProps) {
   const geometry = useLoader(STLLoader, url);
 
   const data = useMemo(() => {
@@ -39,7 +46,7 @@ function STLModel({ url, onDimensions }: any) {
 
   useEffect(() => {
     onDimensions(data.dims);
-  }, [data]);
+  }, [data, onDimensions]);
 
   return (
     <mesh geometry={data.geometry}>
@@ -48,7 +55,7 @@ function STLModel({ url, onDimensions }: any) {
   );
 }
 
-function OBJModel({ url, onDimensions }: any) {
+function OBJModel({ url, onDimensions }: LoadedModelProps) {
   const obj = useLoader(OBJLoader, url);
 
   const data = useMemo(() => {
@@ -61,9 +68,10 @@ function OBJModel({ url, onDimensions }: any) {
 
     obj.position.sub(center);
 
-    obj.traverse((child: any) => {
-      if (child.isMesh) {
-        child.material = new THREE.MeshStandardMaterial({
+    obj.traverse((child: THREE.Object3D) => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.material = new THREE.MeshStandardMaterial({
           color: "#B0BEC5",
           metalness: 0.3,
           roughness: 0.6,
@@ -83,7 +91,7 @@ function OBJModel({ url, onDimensions }: any) {
 
   useEffect(() => {
     onDimensions(data.dims);
-  }, [data]);
+  }, [data, onDimensions]);
 
   return <primitive object={data.obj} />;
 }

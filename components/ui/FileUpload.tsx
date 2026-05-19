@@ -6,7 +6,10 @@ import { cn } from "@/lib/utils";
 
 const ACCEPTED     = [".stl", ".obj", ".step", ".stp"];
 const MAX_SIZE_MB  = 100;
-const UPLOAD_URL   = "https://trid-bak.onrender.com/api/v1/upload";
+const API =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://trid-bak.onrender.com/api/v1";
+const UPLOAD_URL = `${API}/upload`;
 const MAX_RETRIES  = 3;
 const RETRY_DELAY  = 2000; // ms
 
