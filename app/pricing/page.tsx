@@ -13,7 +13,7 @@ import { getGeometryData } from "@/lib/geometry";
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://trid-bak.onrender.com/api/v1";
+  "tridbackend-production.up.railway.app";
 
 interface PricingApiResult {
   material_slug?: string;
