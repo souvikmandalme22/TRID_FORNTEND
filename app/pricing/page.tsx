@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
-import { PricingResult } from "@/components/landing/PricingResult";
+import PricingResult from "@/components/landing/PricingResult";
 import { Navbar } from "@/components/layout/Navbar";
 import { Container } from "@/components/ui";
 import { useOrderStore } from "@/store";
