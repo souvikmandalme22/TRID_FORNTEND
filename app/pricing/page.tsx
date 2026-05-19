@@ -34,74 +34,52 @@ interface PricingApiResult {
   complexity_level?: string;
 }
 
-interface AiSuggestion {
-  ai_suggestion?: string;
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+
+// Backend expects uppercase: "PLA", "ABS", "PETG" etc.
+function normalizeMaterialKey(label?: string): string {
+  const raw = label?.toUpperCase().replace(/\s+/g, "_") || "PLA";
+
+  // Map common frontend labels → backend keys
+  const MAP: Record<string, string> = {
+    "PLA":        "PLA",
+    "ABS":        "ABS",
+    "PETG":       "PETG",
+    "TPU":        "TPU",
+    "NYLON":      "NYLON_PA12",
+    "NYLON_PA12": "NYLON_PA12",
+    "RESIN":      "RESIN",
+  };
+  return MAP[raw] || "PLA";
 }
 
-interface AiPriceRange {
-  min: number;
-  max: number;
-  mid: number;
-}
-
-function normalizeMaterialSlug(label?: string) {
+// Slug for endpoints that still need lowercase
+function normalizeMaterialSlug(label?: string): string {
   return label?.toLowerCase().replace(/\s+/g, "-") || "pla";
 }
 
-async function getAISuggestion(payload: {
-  volume: number;
-  material: string;
-  infill: number;
-  complexity?: string;
-  machine_tier: string;
-}): Promise<AiSuggestion | null> {
-  try {
-    const res = await fetch(`${API}/pricing/ai-suggest`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) return null;
-
-    return (await res.json()) as AiSuggestion;
-  } catch {
-    return null;
-  }
-}
-
-function extractAiPrice(text?: string): AiPriceRange | null {
-  const match = text?.match(/(\d+[.,]?\d*)\s*-\s*(\d+[.,]?\d*)/);
-
-  if (!match) return null;
-
-  const min = parseFloat(match[1].replace(/,/g, ""));
-  const max = parseFloat(match[2].replace(/,/g, ""));
-
-  return {
-    min,
-    max,
-    mid: (min + max) / 2,
-  };
+// Derive machine tier from material — resin/nylon → mid_industry, rest → desktop
+function getMachineTier(materialKey: string): string {
+  if (["RESIN", "NYLON_PA12"].includes(materialKey)) return "mid_industry";
+  return "desktop";
 }
 
 export default function PricingPage() {
   const router = useRouter();
 
-  const model = useOrderStore((s) => s.model);
+  const model    = useOrderStore((s) => s.model);
   const material = useOrderStore((s) => s.material);
-  const useCase = useOrderStore((s) => s.useCase);
+  const useCase  = useOrderStore((s) => s.useCase);
   const quantity = useOrderStore((s) => s.quantity);
   const setPrice = useOrderStore((s) => s.setPrice);
-  const file = useOrderStore((s) => s.file);
+  const file     = useOrderStore((s) => s.file);
 
-  const [data, setData] = useState<PricingApiResult | null>(null);
+  const [data, setData]       = useState<PricingApiResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError]     = useState("");
   const [printTime, setPrintTime] = useState<number | null>(null);
-  const [aiSuggestion, setAiSuggestion] = useState<AiSuggestion | null>(null);
 
   useEffect(() => {
     if (!file) {
@@ -118,111 +96,77 @@ export default function PricingPage() {
         setLoading(true);
         setError("");
         setData(null);
-        setAiSuggestion(null);
 
+        const materialKey  = normalizeMaterialKey(material?.gradeLabel);
         const materialSlug = normalizeMaterialSlug(material?.gradeLabel);
-        const currentQuantity = quantity || 1;
+        const machineTier  = getMachineTier(materialKey);
+        const currentQty   = quantity || 1;
 
+        // ── Step 1: Client-side geometry ──────────────────────────────
         const geo = await getGeometryData(currentFile, {
           materialSlug,
-          useCase: useCase || "showpiece",
+          useCase:       useCase || "showpiece",
           infillPercent: 20,
         });
 
-        const res = await fetch(
-          `${API}/pricing/quick-calculate`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              material_slug: materialSlug,
-              material_key: materialSlug,
-              quantity: currentQuantity,
-              delivery_type: "standard",
-              model_volume_cc: geo.modelVolumeCc,
-              support_volume_cc: geo.supportVolumeCc,
-              final_effective_material_cc: geo.effectiveMaterialCc,
-              infill_percent: 20,
-              complexity_features: {},
-              orientation_analysis: {},
-            }),
-          }
-        );
+        // ── Step 2: Pricing API call ───────────────────────────────────
+        const res = await fetch(`${API}/pricing/quick-calculate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            // Material — both formats for compatibility
+            material_slug: materialSlug,
+            material_key:  materialKey,       // ← FIXED: now uppercase "PLA" not "pla"
 
-        if (!res.ok) {
-          throw new Error(await res.text());
-        }
+            // Complexity — always simple (mid_complex/complex removed)
+            complexity:    "simple",          // ← FIXED: was missing
 
-        const result = (await res.json()) as PricingApiResult;
+            // Machine tier — derived from material
+            machine_tier:  machineTier,       // ← FIXED: was missing
 
-        if (cancelled) return;
-        setData(result);
+            // Quality — standard for all orders
+            quality:       "standard",        // ← FIXED: was missing
 
-        setPrintTime(
-          result.estimated_print_time_hrs ?? null
-        );
+            // Geometry from client-side STL parser
+            model_volume_cc:             geo.modelVolumeCc,
+            support_volume_cc:           geo.supportVolumeCc,
+            final_effective_material_cc: geo.effectiveMaterialCc,
 
-        // =====================================================
-        // AI SUGGESTION (HIDDEN)
-        // =====================================================
+            // Order params
+            infill_percent:  20,
+            quantity:        currentQty,
+            delivery_type:   "standard",
 
-        const ai = await getAISuggestion({
-          volume: result.effective_volume_cc || 0,
-          material: materialSlug,
-          infill: 20,
-          complexity: result.complexity_level,
-          machine_tier: "desktop",
+            // Pass-through (keep for backward compat)
+            complexity_features:  {},
+            orientation_analysis: {},
+          }),
         });
 
+        if (!res.ok) throw new Error(await res.text());
+
+        const result = (await res.json()) as PricingApiResult;
         if (cancelled) return;
-        setAiSuggestion(ai);
 
-        const aiParsed = extractAiPrice(
-          ai?.ai_suggestion || ""
-        );
+        setData(result);
+        setPrintTime(result.estimated_print_time_hrs ?? null);
 
-        const enginePrice =
-          result.final_price || 0;
-
-        let selectedPrice = enginePrice;
-
-        if (aiParsed?.mid) {
-          selectedPrice = Math.min(
-            enginePrice,
-            Math.round(aiParsed.mid)
-          );
-        }
-
-        // =====================================================
-        // STORE PRICE
-        // =====================================================
+        // ── Step 3: Store price ────────────────────────────────────────
+        const enginePrice = result.final_price || 0;
 
         setPrice({
-          pricePerUnit: Math.round(
-            selectedPrice / currentQuantity
-          ),
-
-          subtotal: result.subtotal || 0,
-
-          deliveryFee: result.delivery_fee ?? result.delivery_charges ?? 0,
-
-          total: selectedPrice,
-
-          currency: "\u20b9",
-
-          calculatedAt:
-            new Date().toISOString(),
+          pricePerUnit: Math.round(enginePrice / currentQty),
+          subtotal:     result.subtotal || 0,
+          deliveryFee:  result.delivery_fee ?? result.delivery_charges ?? 0,
+          total:        enginePrice,
+          currency:     "₹",
+          calculatedAt: new Date().toISOString(),
         });
 
       } catch (e) {
         if (cancelled) return;
         console.error(e);
-
-        setError(
-          "Price calculation failed"
-        );
+        setError("Price calculation failed");
       } finally {
         if (cancelled) return;
         setLoading(false);
@@ -230,32 +174,15 @@ export default function PricingPage() {
     }
 
     run();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [file, material?.gradeLabel, quantity, router, setPrice, useCase]);
 
-  // =====================================================
-  // PRICE DISPLAY
-  // =====================================================
+  // ─────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────
 
-  const finalPrice =
-    aiSuggestion?.ai_suggestion
-      ? Math.round(
-          Math.min(
-            data?.final_price || 0,
-            extractAiPrice(
-              aiSuggestion.ai_suggestion
-            )?.mid ||
-              data?.final_price ||
-              0
-          )
-        )
-      : data?.final_price || 0;
-
-  const pricePerUnit = Math.round(
-    finalPrice / (quantity || 1)
-  );
+  const finalPrice   = data?.final_price || 0;
+  const pricePerUnit = Math.round(finalPrice / (quantity || 1));
 
   return (
     <>
@@ -265,15 +192,10 @@ export default function PricingPage() {
         <Container>
           <motion.div className="text-center mb-10">
             <h1 className="text-4xl font-bold">
-              {loading
-                ? "Calculating..."
-                : "Your Price"}
+              {loading ? "Calculating..." : "Your Price"}
             </h1>
-
             {error && (
-              <p className="text-red-400 mt-2">
-                {error}
-              </p>
+              <p className="text-red-400 mt-2">{error}</p>
             )}
           </motion.div>
 
@@ -285,35 +207,16 @@ export default function PricingPage() {
 
           {!loading && data && (
             <PricingResult
-              modelName={
-                model?.fileName || "model.stl"
-              }
+              modelName={model?.fileName || "model.stl"}
 
-              material={
-                material?.familyLabel ||
-                "Plastic"
-              }
-
-              materialGrade={
-                material?.gradeLabel ||
-                "PLA"
-              }
-
-              useCase={
-                useCase || "showpiece"
-              }
-
+              material={material?.familyLabel || "Plastic"}
+              materialGrade={material?.gradeLabel || "PLA"}
+              useCase={useCase || "showpiece"}
               quantity={quantity || 1}
-
-              currency={"\u20b9"}
+              currency="₹"
 
               pricePerUnit={pricePerUnit}
-
               totalPrice={finalPrice}
-
-              // =================================================
-              // FIXED FIELD MAPPING
-              // =================================================
 
               basePrice={
                 data.adjusted_manufacturing_cost ??
@@ -321,71 +224,29 @@ export default function PricingPage() {
                 data.base_manufacturing_cost ??
                 0
               }
-
-              platformFee={
-                data.platform_fee || 0
-              }
-
-              packagingFee={
-                data.packaging_fee || 0
-              }
-
-              gstAmount={
-                data.gst_amount || 0
-              }
-
+              platformFee={data.platform_fee || 0}
+              packagingFee={data.packaging_fee || 0}
+              gstAmount={data.gst_amount || 0}
               gstRate={0.18}
-
               deliveryCharges={
-                data.delivery_fee ??
-                data.delivery_charges ??
-                0
+                data.delivery_fee ?? data.delivery_charges ?? 0
               }
 
-              // =================================================
-              // GEOMETRY
-              // =================================================
-
-              modelVolumeCc={
-                data.model_volume_cc ?? 0
-              }
-
-              supportVolumeCc={
-                data.support_volume_cc ?? 0
-              }
-
-              effectiveVolumeCc={
-                data.effective_volume_cc ?? 0
-              }
-
-              estimatedPrintTimeHrs={
-                printTime ?? undefined
-              }
-
-              // =================================================
-              // UX
-              // =================================================
+              modelVolumeCc={data.model_volume_cc ?? 0}
+              supportVolumeCc={data.support_volume_cc ?? 0}
+              effectiveVolumeCc={data.effective_volume_cc ?? 0}
+              estimatedPrintTimeHrs={printTime ?? undefined}
 
               valuePoints={[
                 "Real STL geometry parsed",
                 "Support volume included",
                 "Automatic hollowing for large parts",
               ]}
-
               warnings={[]}
 
-              onChangeMaterial={() =>
-                router.push("/material")
-              }
-
-              onChangeQuantity={() =>
-                router.push("/environment")
-              }
-
-              onContinue={() =>
-                router.push("/checkout")
-              }
-
+              onChangeMaterial={() => router.push("/material")}
+              onChangeQuantity={() => router.push("/environment")}
+              onContinue={() => router.push("/checkout")}
               file={file}
             />
           )}
