@@ -107,6 +107,7 @@ export default function PricingPage() {
           materialSlug,
           useCase:       useCase || "showpiece",
           infillPercent: 20,
+          quality:       "standard",
         });
 
         // ── Step 2: Pricing API call ───────────────────────────────────
@@ -114,30 +115,24 @@ export default function PricingPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            // Material — both formats for compatibility
             material_slug: materialSlug,
-            material_key:  materialKey,       // ← FIXED: now uppercase "PLA" not "pla"
+            material_key:  materialKey,
+            complexity:    "simple",
+            machine_tier:  machineTier,
+            quality:       "standard",
 
-            // Complexity — always simple (mid_complex/complex removed)
-            complexity:    "simple",          // ← FIXED: was missing
-
-            // Machine tier — derived from material
-            machine_tier:  machineTier,       // ← FIXED: was missing
-
-            // Quality — standard for all orders
-            quality:       "standard",        // ← FIXED: was missing
-
-            // Geometry from client-side STL parser
+            // Geometry — now surface-area based accurate values
             model_volume_cc:             geo.modelVolumeCc,
             support_volume_cc:           geo.supportVolumeCc,
             final_effective_material_cc: geo.effectiveMaterialCc,
+            surface_area_cm2:            geo.surfaceAreaCm2,
+            part_type:                   geo.partType,
+            print_time_hrs:              geo.printTimeHrs,
 
-            // Order params
             infill_percent:  20,
             quantity:        currentQty,
             delivery_type:   "standard",
 
-            // Pass-through (keep for backward compat)
             complexity_features:  {},
             orientation_analysis: {},
           }),
